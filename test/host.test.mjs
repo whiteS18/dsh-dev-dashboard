@@ -267,6 +267,29 @@ test('load validates and forwards pageSize and cursor with a default pageSize of
   }
 })
 
+test('count resolves the account token and forwards filters to api.count', async () => {
+  let received
+  const { call, resolvedRefs } = setup({
+    api: {
+      async load() { throw new Error('unexpected load call') },
+      async count(input) { received = input; return { total: 42, assigned: 30, participant: 15, truncated: false } },
+      async detail() { throw new Error('unexpected detail call') },
+    },
+  })
+  const result = await call('count', {
+    accountId: ACCOUNT.id, organizationId: 'org-1', projectId: 'project-1', scope: 'all',
+  })
+  assert.equal(result.ok, true)
+  assert.equal(result.value.total, 42)
+  assert.deepEqual(resolvedRefs, [REF])
+  assert.equal(received.token, TOKEN)
+  assert.equal(received.organizationId, 'org-1')
+  assert.equal(received.projectId, 'project-1')
+  assert.equal(received.scope, 'all')
+  assert.ok(received.signal instanceof AbortSignal)
+  assert.equal(JSON.stringify(result).includes(TOKEN), false)
+})
+
 test('apply hides the auto-generated settings form and registers issue RPC', () => {
   const configured = []
   const injections = []

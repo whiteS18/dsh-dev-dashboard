@@ -449,3 +449,55 @@ test('load returns hasMore=false on exact 20-item boundary and skips project sea
     error => error instanceof CodeupError && error.code === 'bad-request',
   )
 })
+
+test('count scans all selected projects and pages to compute exact matched totals', async () => {
+  const projects = [
+    { id: 'proj-1', name: 'Project 1' },
+    { id: 'proj-2', name: 'Project 2' },
+  ]
+  const proj1Page1 = Array.from({ length: 22 }, (_, i) => workitem(`p1-a-${i + 1}`, { assignedTo: USER_ID }))
+  const proj1Page2 = [
+    workitem('p1-b-1', { assignedTo: USER_ID, participants: [USER_ID] }),
+    workitem('p1-other', { assignedTo: 'someone-else' }),
+  ]
+  const proj2Page1 = Array.from({ length: 12 }, (_, i) => workitem(`p2-${i + 1}`, { participants: [USER_ID] }))
+
+  const { fetchImpl } = mockFetch((call) => {
+    if (pathname(call) === '/oapi/v1/platform/user') {
+      return response({ id: USER_ID, name: 'Test user', lastOrganization: ORG_ID })
+    }
+    if (pathname(call) === '/oapi/v1/platform/organizations') {
+      return response([{ id: ORG_ID, name: 'Org one' }])
+    }
+    if (pathname(call).endsWith('/projects:search')) {
+      return response(projects, { headers: { 'x-total': 2, 'x-total-pages': 1 } })
+    }
+    if (pathname(call).endsWith('/workitems:search')) {
+      const payload = body(call)
+      if (payload.spaceId === 'proj-1') {
+        return payload.page === 1 ? page(proj1Page1, 2) : page(proj1Page2, 2)
+      }
+      if (payload.spaceId === 'proj-2') {
+        return page(proj2Page1, 1)
+      }
+    }
+    throw new Error(`Unexpected request: ${call.url}`)
+  })
+
+  const api = createCodeupApi(fetchImpl)
+  const firstPage = await api.load({ token: TOKEN, organizationId: ORG_ID, scope: 'all' })
+  assert.equal(firstPage.items.length, 20)
+  assert.equal(firstPage.hasMore, true)
+  assert.equal(firstPage.totalCount, null)
+
+  const summary = await api.count({ token: TOKEN, organizationId: ORG_ID, scope: 'all' })
+  assert.equal(summary.total, 35)
+  assert.equal(summary.assigned, 23)
+  assert.equal(summary.participant, 13)
+  assert.equal(summary.truncated, false)
+
+  const singleProject = await api.count({ token: TOKEN, organizationId: ORG_ID, projectId: 'proj-2', scope: 'all' })
+  assert.equal(singleProject.total, 12)
+  assert.equal(singleProject.assigned, 0)
+  assert.equal(singleProject.participant, 12)
+})

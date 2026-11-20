@@ -6,25 +6,33 @@ import vm from 'node:vm'
 const zhDict = {
   title: 'Git 工作台', subtitle: '管理 Git 账户与 Codeup 工作项', back: '返回对话',
   accountSelect: '选择 Git 账户', add: '新增', addAccount: '新增 Git 账户',
+  manageAccounts: '管理账户', accountListTitle: '管理 Git 账户',
+  accountListEmpty: '当前没有已配置的 Git 账户。', currentAccount: '当前',
+  backToList: '返回列表', close: '关闭',
   edit: '编辑', delete: '删除', editFormTitle: '编辑 Git 账户',
   editTokenHint: '留空表示保留当前访问令牌', saveChanges: '保存修改',
   confirmDeleteTitle: '删除账户', confirmDeleteDescription: '此操作无法撤销',
   confirmDeleteAction: '确认删除',
   emptyTitle: '还没有 Git 账户', emptyDescription: '选择 Git 托管平台并配置账户。',
   formTitle: '新增 Git 账户', platform: '托管平台', username: '用户名',
-  configuredNote: '账户信息和当前选择保存在本机；访问令牌由凭据存储保管。',
+  token: '访问令牌', tokenPlaceholder: '输入访问令牌',
+  tokenHint: '令牌仅写入本机凭据存储', save: '保存账户', cancel: '取消',
   issues: 'Codeup 工作项', scopeAll: '我负责或参与',
-  organization: '组织',
-  project: '项目', allProjects: '全部项目', refresh: '刷新', refreshing: '正在刷新…',
+  organization: '组织', project: '项目', allProjects: '全部项目',
+  refresh: '刷新', refreshing: '正在刷新…',
   issuesLoading: '正在读取 Codeup 工作项…', issueCount: '个工作项',
+  totalPrefix: '共', loadedCount: '已加载', countingTotal: '正在统计总数…',
   noIssues: '没有匹配的工作项', noIssuesDescription: '可以尝试切换范围、组织或项目。',
+  selectIssuePrompt: '点击左侧任务查看详细描述',
   truncated: '结果可能不完整：本次查询已达到扫描上限。',
-  expand: '查看详情', collapse: '收起详情', detailLoading: '正在读取详情…',
-  detailError: '详情读取失败。', description: '描述', noDescription: '没有描述。',
+  detailLoading: '正在读取详情…', detailError: '详情读取失败。',
+  description: '任务描述', noDescription: '暂无描述。',
   serialNumber: '编号', type: '类型', status: '状态', assignedTo: '负责人',
   participants: '参与人', creator: '创建人', updatedAt: '更新时间', createdAt: '创建时间',
   labels: '标签', otherFields: '其他字段', openInCodeup: '在云效中打开',
   relationAssigned: '负责', relationParticipant: '参与',
+  actionStart: '开始', actionContinue: '继续',
+  copyCode: '复制代码', copied: '已复制', footnotes: '注释',
   noOrganizations: '这个账户没有可用的云效组织。', noProjects: '这个组织下没有可用项目。',
   loadMore: '加载更多', loadingMore: '正在加载更多工作项…',
   noMoreIssues: '已加载全部工作项', loadMoreError: '加载更多工作项失败。',
@@ -39,7 +47,7 @@ const source = await readFile(new URL('../dist/client.js', import.meta.url), 'ut
  * Minimal hook-driven renderer: function components are invoked with an
  * injected useState queue so the real JSX tree renders without a DOM.
  */
-function harness() {
+function harness({ primitivesMock = {} } = {}) {
   let definition
   const context = {
     window: { __ModuleLoader__: { load(value) { definition = value } } },
@@ -64,8 +72,9 @@ function harness() {
     __setQueue(next) { queue = next || []; index = 0 },
   }
   const plugin = definition.factory((name) => {
-    assert.equal(name, 'react')
-    return React
+    if (name === 'react') return React
+    if (name === '@deepseek-ai/dsh-client-ui-primitives') return primitivesMock
+    throw new Error(`Unexpected require: ${name}`)
   })
 
   const registrations = []
@@ -100,7 +109,6 @@ function harness() {
   plugin.apply(ctx)
   const main = registrations.find(item => item.options.name === 'main')
   assert.ok(main)
-  // The real Slot layer injects `t` from the registration's `locale: NS`.
   const props = { ...main.options.inject(), t: key => zhDict[key] ?? key }
 
   function render(stateMap) {
@@ -118,6 +126,8 @@ function harness() {
         return
       }
       nodes.push({ tag: type, props: nodeProps || {} })
+      if (nodeProps?.anchor) visit(nodeProps.anchor)
+      if (nodeProps?.footer) visit(nodeProps.footer)
       children.forEach(visit)
     }
     visit(React.createElement(main.component, props))
@@ -127,8 +137,8 @@ function harness() {
   return { render, form }
 }
 
-function issueData(overrides = {}) {
-  const item = {
+function makeIssue(overrides = {}) {
+  return {
     id: 'issue-1',
     title: '修复登录超时',
     subject: '修复登录超时',
@@ -144,14 +154,19 @@ function issueData(overrides = {}) {
     gmtCreate: '2026-11-18T09:00:00.000Z',
     gmtModified: '2026-11-19T10:00:00.000Z',
     relations: ['assigned', 'participant'],
-    description: '## 任务内容\n把登录超时从 30s 改成 60s。',
+    description: '## 任务内容\n把登录超时从 **30s** 改成 `60s`。\n- 检查网关超时',
     formatType: 'MARKDOWN',
     customFieldValues: [{
       fieldId: 'priority', fieldName: '优先级', fieldFormat: 'list',
       values: [{ identifier: 'high', displayValue: '高' }],
       displayValues: ['高'], displayValue: '高',
     }],
+    ...overrides,
   }
+}
+
+function issueData(overrides = {}) {
+  const item = makeIssue()
   return {
     user: { id: 'u1', name: '宋传伟' },
     organizations: [{ id: 'org-1', name: '我的组织' }],
@@ -160,60 +175,92 @@ function issueData(overrides = {}) {
     selectedProjectId: 'all',
     scope: 'all',
     items: [item],
+    totalCount: 1,
     truncated: true,
     stats: { projectsSearched: 1, itemsReturned: 1 },
     ...overrides,
   }
 }
 
-function pageStates(data, expandedId = 'issue-1') {
+function pageStates(data, {
+  modal = { kind: 'closed', accountId: '', returnToList: false },
+  deletingId = '',
+  platform = 'github',
+  username = '',
+  selectedIssueId = 'issue-1',
+  countState = { status: 'ready', total: null, truncated: false },
+  issueStateOverrides = {},
+  detailItem = null,
+} = {}) {
   return {
     GitWorkbenchPage: [
-      [false, () => {}], [false, () => {}], [false, () => {}],
-      ['github', () => {}], ['', () => {}], ['', () => {}],
-      [false, () => {}], [false, () => {}], ['', () => {}],
+      [modal, () => {}],
+      [deletingId, () => {}],
+      [platform, () => {}],
+      [username, () => {}],
+      ['', () => {}],
+      [false, () => {}],
+      [false, () => {}],
+      ['', () => {}],
     ],
     IssueWorkbench: [
-      ['', () => {}], ['all', () => {}],
-      [0, () => {}], [expandedId, () => {}],
-      [{ status: 'ready', data, error: '' }, () => {}],
+      ['', () => {}],
+      ['all', () => {}],
+      [0, () => {}],
+      [selectedIssueId, () => {}],
+      [{ status: 'ready', data, error: '', loadingMore: false, loadMoreError: '', ...issueStateOverrides }, () => {}],
+      [countState, () => {}],
     ],
-    IssueDetail: [
-      [{ status: 'ready', detail: data.items[0], error: '' }, () => {}],
+    IssueDetailPane: [
+      [{ status: 'ready', detail: detailItem || data.items[0], error: '' }, () => {}],
     ],
   }
 }
 
-function accountSnapshot() {
+function accountSnapshot(extra = []) {
   return {
     status: 'ready', writable: true,
     value: {
-      accounts: [{ id: 'acc-1', platform: 'codeup', username: 'tester' }],
+      accounts: [
+        { id: 'acc-1', platform: 'codeup', username: 'tester' },
+        ...extra,
+      ],
       selectedAccountId: 'acc-1',
     },
   }
 }
 
-test('renders the Codeup issue list, detail fields, truncation notice, and a safe Yunxiao link', () => {
+test('renders left-right split workbench, Markdown description, total count, and safe Yunxiao link', () => {
   const { render, form } = harness()
-  form.snapshot = {
-    status: 'ready', writable: true,
-    value: {
-      accounts: [{ id: 'acc-1', platform: 'codeup', username: 'tester' }],
-      selectedAccountId: 'acc-1',
-    },
-  }
+  form.snapshot = accountSnapshot()
   const data = issueData()
   const { text, nodes } = render(pageStates(data))
 
   for (const expected of [
     '修复登录超时', 'EWUX-3759', '处理中', '任务', '项目一', '宋传伟', '周冬伟',
-    '## 任务内容', '把登录超时从 30s 改成 60s。', '优先级', '高',
-    '我负责或参与', '负责', '参与',
-    '结果可能不完整', '在云效中打开', '描述', '其他字段', '更新时间',
+    '任务内容', '把登录超时从', '30s', '60s', '检查网关超时',
+    '优先级', '高', '我负责或参与', '负责', '参与',
+    '共 1+ 个工作项', '结果可能不完整', '在云效中打开', '任务描述', '其他字段', '更新时间',
   ]) {
     assert.ok(text.includes(expected), `missing rendered text: ${expected}`)
   }
+
+  // Split layout containers
+  assert.ok(nodes.some(node => String(node.props.className).includes('__split')))
+  assert.ok(nodes.some(node => String(node.props.className).includes('__listPane')))
+  assert.ok(nodes.some(node => String(node.props.className).includes('__detailPane')))
+
+  // Markdown rendered as semantic elements (fallback renderer) with zero raw HTML injection
+  assert.ok(nodes.some(node => node.tag === 'h2'))
+  assert.ok(nodes.some(node => node.tag === 'strong'))
+  assert.ok(nodes.some(node => node.tag === 'code'))
+  assert.ok(nodes.some(node => node.tag === 'ul'))
+  assert.equal(nodes.some(node => Object.hasOwn(node.props, 'dangerouslySetInnerHTML')), false)
+
+  // Header does NOT apply --dsh-frame-top-clearance pushing layout down
+  const styleNode = nodes.find(node => node.tag === 'style')
+  assert.ok(styleNode)
+  assert.equal(text.includes('dsh-frame-top-clearance'), false)
 
   const links = nodes.filter(node => node.tag === 'a')
   assert.equal(links.length, 1)
@@ -223,16 +270,108 @@ test('renders the Codeup issue list, detail fields, truncation notice, and a saf
   )
   assert.equal(links[0].props.target, '_blank')
   assert.equal(links[0].props.rel, 'noopener noreferrer')
-
-  const expanded = nodes.filter(node => node.tag === 'button' && node.props['aria-expanded'] === true)
-  assert.equal(expanded.length, 1)
-  assert.ok(String(expanded[0].props['aria-controls']).includes('issue-1'))
-
-  // Descriptions are rendered as text nodes, never as raw HTML.
-  assert.equal(nodes.some(node => Object.hasOwn(node.props, 'dangerouslySetInnerHTML')), false)
 })
 
-test('encodes every Yunxiao URL segment and shows the unsupported notice for other platforms', () => {
+test('uses DSH native Menu, Modal, and MarkdownText primitives when available', () => {
+  const menuCalls = []
+  const modalCalls = []
+  const markdownCalls = []
+  const primitivesMock = {
+    Menu: function MockMenu(props) {
+      menuCalls.push(props)
+      return { type: 'dsh-menu', props, children: [] }
+    },
+    Modal: function MockModal(props) {
+      modalCalls.push(props)
+      return { type: 'dsh-modal', props, children: [props.children] }
+    },
+    MarkdownText: function MockMarkdownText(props) {
+      markdownCalls.push(props)
+      return { type: 'dsh-markdown', props, children: [props.text] }
+    },
+  }
+  const { render, form } = harness({ primitivesMock })
+  form.snapshot = accountSnapshot()
+  const data = issueData()
+  const { nodes } = render(pageStates(data, { modal: { kind: 'add', accountId: '', returnToList: false } }))
+
+  // Account selector, org selector, project selector, and form platform selector all use DSH native Menu
+  assert.equal(menuCalls.length, 4)
+  assert.equal(nodes.some(node => node.tag === 'select'), false)
+  // Modal uses DSH native Modal
+  assert.equal(modalCalls.length, 1)
+  assert.equal(modalCalls[0].title, '新增 Git 账户')
+  // Markdown description uses DSH native MarkdownText
+  assert.equal(markdownCalls.length, 1)
+  assert.ok(markdownCalls[0].text.includes('## 任务内容'))
+})
+
+test('shows Start/Continue buttons strictly according to workitem status', () => {
+  const { render, form } = harness()
+  form.snapshot = accountSnapshot()
+  const items = [
+    makeIssue({ id: 'i-todo', title: '待处理任务', statusStageId: '1', status: { name: '待处理', displayName: '待处理', nameEn: 'To Do' } }),
+    makeIssue({ id: 'i-new', title: '新建需求', statusStageId: '1', status: { name: '需求池', displayName: '需求池', nameEn: 'Backlog' } }),
+    makeIssue({ id: 'i-doing', title: '处理中任务', statusStageId: '2', status: { name: '处理中', displayName: '处理中', nameEn: 'In Progress' } }),
+    makeIssue({ id: 'i-reject', title: '测试未通过任务', statusStageId: '2', status: { name: '测试未通过', displayName: '测试未通过', nameEn: 'Rejected' } }),
+    makeIssue({ id: 'i-testing', title: '待测试任务', statusStageId: '2', status: { name: '待测试', displayName: '待测试', nameEn: 'To Test' } }),
+    makeIssue({ id: 'i-done', title: '已完成任务', statusStageId: '4', status: { name: '已完成', displayName: '已完成', nameEn: 'Done' } }),
+  ]
+  const data = issueData({ items, totalCount: items.length, truncated: false })
+  const { nodes } = render(pageStates(data, { selectedIssueId: 'i-todo' }))
+  const actionButtons = nodes.filter(node => node.tag === 'button' && String(node.props.className).includes('__taskActionBtn'))
+  assert.deepEqual(
+    actionButtons.map(btn => btn.props['data-action']),
+    ['start', 'start', 'continue', 'continue'],
+  )
+})
+
+test('account management modal lists all Git platform accounts for individual edit and delete', () => {
+  const { render, form } = harness()
+  form.snapshot = accountSnapshot([{ id: 'acc-2', platform: 'github', username: 'octocat' }])
+  const data = issueData()
+
+  // Header shows manage accounts button instead of separate single-account edit/delete icons
+  const closedRender = render(pageStates(data))
+  assert.ok(closedRender.text.includes('管理账户'))
+
+  // Account list modal displays all configured accounts
+  const listRender = render(pageStates(data, {
+    modal: { kind: 'list', accountId: '', returnToList: false },
+  }))
+  assert.ok(listRender.text.includes('Codeup'))
+  assert.ok(listRender.text.includes('tester'))
+  assert.ok(listRender.text.includes('GitHub'))
+  assert.ok(listRender.text.includes('octocat'))
+  const rows = listRender.nodes.filter(node => node.tag === 'li' && String(node.props.className).includes('__accountRow'))
+  assert.equal(rows.length, 2)
+
+  // Deleting a specific account shows confirmation inside the modal
+  const deleteRender = render(pageStates(data, {
+    modal: { kind: 'list', accountId: '', returnToList: false },
+    deletingId: 'acc-2',
+  }))
+  assert.ok(deleteRender.text.includes('删除账户：GitHub · octocat'))
+  assert.ok(deleteRender.text.includes('此操作无法撤销'))
+  assert.ok(deleteRender.text.includes('确认删除'))
+
+  // Editing an individual account pre-fills that account and treats token as optional
+  const editRender = render(pageStates(data, {
+    modal: { kind: 'edit', accountId: 'acc-2', returnToList: true },
+    platform: 'github',
+    username: 'octocat',
+  }))
+  assert.ok(editRender.text.includes('编辑 Git 账户'))
+  assert.ok(editRender.text.includes('返回列表'))
+  assert.ok(editRender.text.includes('保存修改'))
+  const tokenInputs = editRender.nodes.filter(node => node.tag === 'input' && node.props.type === 'password')
+  assert.equal(tokenInputs.length, 1)
+  assert.equal(tokenInputs[0].props.required, false)
+  const usernameInput = editRender.nodes.find(node => node.tag === 'input' && node.props.type === 'text')
+  assert.equal(usernameInput.props.value, 'octocat')
+})
+
+test('encodes every Yunxiao URL segment and shows unsupported notice for other platforms', () => {
   const { render, form } = harness()
   const data = issueData({
     selectedOrganizationId: 'org/../evil?x=1',
@@ -240,13 +379,7 @@ test('encodes every Yunxiao URL segment and shows the unsupported notice for oth
   })
   data.items[0].space = { id: 'proj/../bad', name: '项目一' }
 
-  form.snapshot = {
-    status: 'ready', writable: true,
-    value: {
-      accounts: [{ id: 'acc-1', platform: 'codeup', username: 'tester' }],
-      selectedAccountId: 'acc-1',
-    },
-  }
+  form.snapshot = accountSnapshot()
   const encoded = render(pageStates(data))
   const link = encoded.nodes.find(node => node.tag === 'a')
   assert.ok(link)
@@ -268,105 +401,65 @@ test('encodes every Yunxiao URL segment and shows the unsupported notice for oth
   assert.equal(unsupported.nodes.some(node => node.tag === 'a'), false)
 })
 
-test('offers edit and delete controls for the selected account', () => {
-  const { render, form } = harness()
-  form.snapshot = accountSnapshot()
-  const { nodes } = render(pageStates(issueData()))
-  const labels = nodes.filter(node => node.tag === 'button').map(node => node.props['aria-label'])
-  assert.ok(labels.includes('编辑'))
-  assert.ok(labels.includes('删除'))
-  const actions = nodes.filter(node => node.tag === 'button'
-    && String(node.props.className).includes('__accountAction'))
-  assert.equal(actions.length, 2)
-})
-
-test('asks for confirmation, with the account name, before deleting', () => {
-  const { render, form } = harness()
-  form.snapshot = accountSnapshot()
-  const states = pageStates(issueData())
-  states.GitWorkbenchPage[2] = [true, () => {}]
-  const { text, nodes } = render(states)
-  assert.ok(text.includes('删除账户：Codeup · tester'))
-  assert.ok(text.includes('此操作无法撤销'))
-  assert.ok(text.includes('确认删除'))
-  const confirm = nodes.find(node => node.tag === 'div'
-    && String(node.props.className).includes('__confirm'))
-  assert.ok(confirm)
-  assert.equal(confirm.props.role, 'alertdialog')
-})
-
-test('edit form pre-fills the account and treats the token as optional', () => {
-  const { render, form } = harness()
-  form.snapshot = accountSnapshot()
-  const states = pageStates(issueData())
-  states.GitWorkbenchPage[1] = [true, () => {}]
-  states.GitWorkbenchPage[3] = ['codeup', () => {}]
-  states.GitWorkbenchPage[4] = ['tester', () => {}]
-  const { text, nodes } = render(states)
-  assert.ok(text.includes('编辑 Git 账户'))
-  assert.ok(text.includes('留空表示保留当前访问令牌'))
-  assert.ok(text.includes('保存修改'))
-  const tokenInputs = nodes.filter(node => node.tag === 'input' && node.props.type === 'password')
-  assert.equal(tokenInputs.length, 1)
-  assert.equal(tokenInputs[0].props.required, false)
-  const username = nodes.find(node => node.tag === 'input' && node.props.type === 'text')
-  assert.equal(username.props.value, 'tester')
-})
-
-test('shows only the single scope note, with no scope filter buttons', () => {
-  const { render, form } = harness()
-  form.snapshot = accountSnapshot()
-  const { text, nodes } = render(pageStates(issueData()))
-  assert.ok(text.includes('我负责或参与'))
-  assert.equal(text.includes('我负责的'), false)
-  assert.equal(text.includes('我参与的'), false)
-  assert.equal(nodes.some(node => String(node.props.className).includes('__scopeButton')), false)
-  const notes = nodes.filter(node => String(node.props.className).includes('__scopeNote'))
-  assert.equal(notes.length, 1)
-})
-
-test('renders pagination footer states (sentinel/loadMore, loadingMore, loadMoreError, and end)', () => {
+test('renders total statistical count and pagination footer states', () => {
   const { render, form } = harness()
   form.snapshot = accountSnapshot()
 
   const moreData = issueData({
+    items: Array.from({ length: 20 }, (_, i) => makeIssue({ id: `issue-${i + 1}`, title: `任务 ${i + 1}` })),
+    totalCount: null,
     hasMore: true,
-    nextCursor: { projectIndex: 0, page: 1, offset: 20, anchorId: 'issue-1' },
+    nextCursor: { projectIndex: 0, page: 1, offset: 20, anchorId: 'issue-20' },
+    truncated: false,
   })
-  const moreRender = render(pageStates(moreData, null))
-  assert.ok(moreRender.text.includes('加载更多'))
-  assert.equal(moreRender.text.includes('已加载全部工作项'), false)
-  assert.ok(moreRender.nodes.some(node => String(node.props.className).includes('__loadMoreSentinel')))
 
-  const loadingMoreStates = pageStates(moreData, null)
-  loadingMoreStates.IssueWorkbench[4] = [{ status: 'ready', data: moreData, error: '', loadingMore: true, loadMoreError: '' }, () => {}]
-  const loadingMoreRender = render(loadingMoreStates)
+  // Total count ready while partially loaded
+  const countedRender = render(pageStates(moreData, {
+    selectedIssueId: 'issue-1',
+    countState: { status: 'ready', total: 86, truncated: false },
+  }))
+  assert.ok(countedRender.text.includes('共 86 个工作项（已加载 20）'))
+  assert.ok(countedRender.text.includes('加载更多'))
+  assert.ok(countedRender.nodes.some(node => String(node.props.className).includes('__loadMoreSentinel')))
+
+  // While background count is still loading
+  const countingRender = render(pageStates(moreData, {
+    selectedIssueId: 'issue-1',
+    countState: { status: 'loading', total: null, truncated: false },
+  }))
+  assert.ok(countingRender.text.includes('正在统计总数…'))
+
+  // Loading more & error states
+  const loadingMoreRender = render(pageStates(moreData, {
+    selectedIssueId: 'issue-1',
+    issueStateOverrides: { loadingMore: true },
+  }))
   assert.ok(loadingMoreRender.text.includes('正在加载更多工作项…'))
 
-  const errorMoreStates = pageStates(moreData, null)
-  errorMoreStates.IssueWorkbench[4] = [{ status: 'ready', data: moreData, error: '', loadingMore: false, loadMoreError: '分页加载失败' }, () => {}]
-  const errorMoreRender = render(errorMoreStates)
+  const errorMoreRender = render(pageStates(moreData, {
+    selectedIssueId: 'issue-1',
+    issueStateOverrides: { loadMoreError: '分页加载失败' },
+  }))
   assert.ok(errorMoreRender.text.includes('分页加载失败'))
   assert.ok(errorMoreRender.text.includes('重试'))
 
-  const endData = issueData({ hasMore: false, nextCursor: null })
-  const endRender = render(pageStates(endData, null))
+  // All loaded
+  const endData = issueData({ hasMore: false, nextCursor: null, totalCount: 1, truncated: false })
+  const endRender = render(pageStates(endData, { selectedIssueId: 'issue-1' }))
+  assert.ok(endRender.text.includes('共 1 个工作项'))
   assert.ok(endRender.text.includes('已加载全部工作项'))
   assert.equal(endRender.text.includes('加载更多'), false)
 })
 
-test('IssueWorkbench queries 20 items initially and loads next 20 items on scroll intersection', async () => {
+test('IssueWorkbench queries 20 items, fetches background total count, and loads next page on scroll', async () => {
   const rpcCalls = []
-  const page1Items = Array.from({ length: 20 }, (_, i) => ({
-    ...issueData().items[0],
+  const page1Items = Array.from({ length: 20 }, (_, i) => makeIssue({
     id: `issue-${i + 1}`,
     title: `工作项 ${i + 1}`,
   }))
   const page2Items = [
-    // Include one overlapping id to verify client deduplication
-    { ...issueData().items[0], id: 'issue-20', title: '工作项 20', relations: ['participant'] },
-    ...Array.from({ length: 5 }, (_, i) => ({
-      ...issueData().items[0],
+    makeIssue({ id: 'issue-20', title: '工作项 20', relations: ['participant'] }),
+    ...Array.from({ length: 5 }, (_, i) => makeIssue({
       id: `issue-${21 + i}`,
       title: `工作项 ${21 + i}`,
     })),
@@ -403,7 +496,6 @@ test('IssueWorkbench queries 20 items initially and loads next 20 items on scrol
   let refIdx = 0
   let effectIdx = 0
   let pendingEffects = []
-  let currentTree = null
 
   let scheduled = false
   function scheduleRerender() {
@@ -446,7 +538,11 @@ test('IssueWorkbench queries 20 items initially and loads next 20 items on scrol
     useId() { return 'test-id' },
   }
 
-  const plugin = definition.factory(() => React)
+  const plugin = definition.factory((name) => {
+    if (name === 'react') return React
+    if (name === '@deepseek-ai/dsh-client-ui-primitives') return {}
+    throw new Error(`Unexpected require: ${name}`)
+  })
   const registrations = []
   const rpc = {
     async call(_channel, endpoint, payload) {
@@ -456,9 +552,16 @@ test('IssueWorkbench queries 20 items initially and loads next 20 items on scrol
           ok: true,
           value: issueData({
             items: page1Items,
+            totalCount: null,
             hasMore: true,
             nextCursor: { projectIndex: 0, page: 1, offset: 20, anchorId: 'issue-20' },
           }),
+        }
+      }
+      if (endpoint === 'count') {
+        return {
+          ok: true,
+          value: { total: 25, assigned: 20, participant: 5, truncated: false },
         }
       }
       if (endpoint === 'load' && payload.cursor) {
@@ -466,6 +569,7 @@ test('IssueWorkbench queries 20 items initially and loads next 20 items on scrol
           ok: true,
           value: issueData({
             items: page2Items,
+            totalCount: null,
             hasMore: false,
             nextCursor: null,
           }),
@@ -489,7 +593,6 @@ test('IssueWorkbench queries 20 items initially and loads next 20 items on scrol
   plugin.apply(ctx)
   const main = registrations.find(item => item.options.name === 'main')
 
-  // Isolate IssueWorkbench component directly from rendered main tree.
   function findIssueWorkbench(node) {
     if (!node || typeof node !== 'object') return null
     if (Array.isArray(node)) {
@@ -526,8 +629,8 @@ test('IssueWorkbench queries 20 items initially and loads next 20 items on scrol
     refIdx = 0
     effectIdx = 0
     pendingEffects = []
-    currentTree = IssueWorkbench(workbenchProps)
-    attachRefs(currentTree)
+    const tree = IssueWorkbench(workbenchProps)
+    attachRefs(tree)
     const effectsToRun = pendingEffects
     pendingEffects = []
     for (const item of effectsToRun) {
@@ -539,23 +642,24 @@ test('IssueWorkbench queries 20 items initially and loads next 20 items on scrol
   }
 
   rerender()
-  await new Promise(resolve => setTimeout(resolve, 20))
-
-  assert.equal(rpcCalls.length, 1)
-  assert.equal(rpcCalls[0].endpoint, 'load')
-  assert.equal(rpcCalls[0].payload.pageSize, 20)
-  assert.equal(rpcCalls[0].payload.cursor, undefined)
-  assert.equal(stateSlots[4].data.items.length, 20)
-  assert.equal(observers.length, 1)
-
-  // Trigger scroll intersection at the bottom sentinel.
-  observers[0].callback([{ isIntersecting: true }])
-  await new Promise(resolve => setTimeout(resolve, 20))
+  await new Promise(resolve => setTimeout(resolve, 25))
 
   assert.equal(rpcCalls.length, 2)
-  assert.equal(rpcCalls[1].endpoint, 'load')
-  assert.equal(rpcCalls[1].payload.pageSize, 20)
-  assert.deepEqual(rpcCalls[1].payload.cursor, { projectIndex: 0, page: 1, offset: 20, anchorId: 'issue-20' })
+  assert.equal(rpcCalls[0].endpoint, 'load')
+  assert.equal(rpcCalls[0].payload.pageSize, 20)
+  assert.equal(rpcCalls[1].endpoint, 'count')
+  assert.equal(stateSlots[3], 'issue-1') // auto-selected first item
+  assert.equal(stateSlots[4].data.items.length, 20)
+  assert.equal(stateSlots[5].total, 25) // background total count resolved
+  assert.ok(observers.length >= 1)
+
+  // Trigger scroll intersection at the bottom sentinel on the latest active observer.
+  observers.at(-1).callback([{ isIntersecting: true }])
+  await new Promise(resolve => setTimeout(resolve, 25))
+
+  assert.equal(rpcCalls.length, 3)
+  assert.equal(rpcCalls[2].endpoint, 'load')
+  assert.deepEqual(rpcCalls[2].payload.cursor, { projectIndex: 0, page: 1, offset: 20, anchorId: 'issue-20' })
   assert.equal(stateSlots[4].data.items.length, 25)
   assert.deepEqual(
     Array.from(stateSlots[4].data.items.find(item => item.id === 'issue-20').relations),

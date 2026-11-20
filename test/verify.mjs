@@ -37,8 +37,9 @@ vm.runInNewContext(await readFile(join(root, 'dist/client.js'), 'utf8'), context
 assert.equal(definition.id, manifest.name)
 const React = { createElement: (...args) => ({ args }) }
 const plugin = definition.factory((name) => {
-  assert.equal(name, 'react')
-  return React
+  if (name === 'react') return React
+  if (name === '@deepseek-ai/dsh-client-ui-primitives') return {}
+  throw new Error(`Unexpected require: ${name}`)
 })
 assert.equal(JSON.stringify(plugin.inject), JSON.stringify(['slots', 'layout', 'locale', 'configForms', 'remote', 'remote.credentials', 'connection']))
 const registrations = []
