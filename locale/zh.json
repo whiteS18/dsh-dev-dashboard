@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "dsh-dev-dashboard",
+    "description": "新增、编辑、删除并切换 GitHub、GitLab、Gitee 和 Codeup 账户，查看 Codeup 账户负责或参与的云效需求、任务与缺陷；访问令牌单独保存在凭据存储中。"
+  }
+}

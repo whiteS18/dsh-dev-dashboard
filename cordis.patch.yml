@@ -1,0 +1,11 @@
+[
+  {
+    "insert": [
+      {
+        "id": "dsh-dev-dashboard:host",
+        "name": "dsh-dev-dashboard",
+        "config": {}
+      }
+    ]
+  }
+]

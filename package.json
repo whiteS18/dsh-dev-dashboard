@@ -1,0 +1,48 @@
+{
+  "name": "dsh-dev-dashboard",
+  "version": "1.4.0",
+  "private": true,
+  "description": "A Git account workbench with Codeup issue lists, scope filters, and details, backed by local credential-store tokens.",
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.js",
+    "./client": "./dist/client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/index.js",
+    "dist/codeup.js",
+    "dist/issue-rpc.js",
+    "dist/client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node ./build.mjs",
+    "check": "node --check ./dist/index.js && node --check ./dist/codeup.js && node --check ./dist/issue-rpc.js && node --check ./dist/client.js && node ./test/codeup.test.mjs && node ./test/host.test.mjs && node ./test/render.test.mjs && node ./test/verify.mjs"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/schemastery": "^3.18.1"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-sidebar"
+      ]
+    }
+  }
+}
