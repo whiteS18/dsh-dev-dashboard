@@ -258,6 +258,15 @@ export function registerIssueRpc(ctx, config, api = createCodeupApi()) {
           signal,
         }))
       }
+      if (endpoint === 'count') {
+        return ok(await api.count({
+          token,
+          organizationId: optionalString(payload.organizationId, 'organizationId'),
+          projectId: optionalString(payload.projectId, 'projectId') || 'all',
+          scope: optionalString(payload.scope, 'scope', 30) || 'all',
+          signal,
+        }))
+      }
       if (endpoint === 'detail') {
         return ok(await api.detail({
           token,

@@ -516,8 +516,152 @@ export function createCodeupApi(fetchImpl = globalThis.fetch) {
       selectedProjectId,
       scope: selectedScope,
       items,
+      totalCount: isInitialLoad && !hasMore ? items.length : null,
       hasMore,
       nextCursor,
+      truncated,
+      stats,
+    }
+  }
+
+  async function count({
+    token,
+    organizationId = '',
+    projectId = 'all',
+    scope = 'all',
+    signal,
+  } = {}) {
+    const accessToken = cleanToken(token)
+    const requestedOrganization = asString(organizationId).trim()
+    const requestedProject = asString(projectId).trim() || 'all'
+    const selectedScope = cleanScope(scope)
+
+    let user
+    let organizations = []
+    let selectedOrganizationId = requestedOrganization
+    if (!selectedOrganizationId) {
+      const [userResult, organizationResult] = await Promise.all([
+        request(accessToken, '/oapi/v1/platform/user', { signal }),
+        request(accessToken, '/oapi/v1/platform/organizations', { signal }),
+      ])
+      user = normalizeUser(objectBody(userResult))
+      organizations = arrayBody(organizationResult).map(normalizeOrganization)
+      selectedOrganizationId = organizations.find(item => item.id === user.lastOrganization)?.id
+        || organizations[0]?.id
+        || ''
+    } else {
+      const userResult = await request(accessToken, '/oapi/v1/platform/user', { signal })
+      user = normalizeUser(objectBody(userResult))
+    }
+
+    const singleProject = requestedProject !== 'all'
+    const selectedProjectId = singleProject ? requestedProject : 'all'
+    let projects = []
+    let availableProjectCount = 0
+    let projectPagesLimited = false
+    if (selectedOrganizationId && !singleProject) {
+      const org = encodeURIComponent(selectedOrganizationId)
+      let page = 1
+      while (page <= MAX_PROJECT_PAGES) {
+        const result = await request(
+          accessToken,
+          `/oapi/v1/projex/organizations/${org}/projects:search`,
+          {
+            method: 'POST',
+            body: { orderBy: 'gmtCreate', page, perPage: PAGE_SIZE, sort: 'desc' },
+            signal,
+          },
+        )
+        const rows = arrayBody(result).map(normalizeProject)
+        projects.push(...rows)
+        const total = positiveInteger(header(result.response, 'x-total'))
+        if (total !== null) availableProjectCount = Math.max(availableProjectCount, total)
+        if (!hasNextPage(result.response, rows, page)) break
+        page += 1
+      }
+      if (page > MAX_PROJECT_PAGES) projectPagesLimited = true
+      availableProjectCount = Math.max(availableProjectCount, projects.length)
+    }
+
+    const selectedProjects = singleProject
+      ? [{ id: requestedProject, name: requestedProject }]
+      : projects
+
+    const matchedIds = new Set()
+    const assignedIds = new Set()
+    const participantIds = new Set()
+    let workitemPagesLimited = false
+    const stats = {
+      projectsTotal: singleProject ? 1 : availableProjectCount,
+      projectsSearched: 0,
+      pagesFetched: 0,
+      itemsScanned: 0,
+      truncatedReason: '',
+    }
+
+    const hasRelation = (raw, relation) => {
+      if (relation === 'assigned') return person(raw?.assignedTo)?.id === user.id
+      return people(raw?.participants).some(item => item.id === user.id)
+    }
+
+    if (selectedOrganizationId) {
+      const org = encodeURIComponent(selectedOrganizationId)
+      for (const project of selectedProjects) {
+        stats.projectsSearched += 1
+        let page = 1
+        while (true) {
+          if (page > MAX_WORKITEM_PAGES) {
+            workitemPagesLimited = true
+            break
+          }
+          const result = await request(
+            accessToken,
+            `/oapi/v1/projex/organizations/${org}/workitems:search`,
+            {
+              method: 'POST',
+              body: {
+                category: CATEGORY,
+                orderBy: 'gmtCreate',
+                page,
+                perPage: PAGE_SIZE,
+                sort: 'desc',
+                spaceId: project.id,
+                spaceType: 'Project',
+              },
+              signal,
+            },
+          )
+          const rows = arrayBody(result)
+          stats.pagesFetched += 1
+          for (const raw of rows) {
+            stats.itemsScanned += 1
+            const id = asString(raw?.id)
+            if (!id) continue
+            const isAssigned = (selectedScope === 'all' || selectedScope === 'assigned') && hasRelation(raw, 'assigned')
+            const isParticipant = (selectedScope === 'all' || selectedScope === 'participant') && hasRelation(raw, 'participant')
+            if (isAssigned) assignedIds.add(id)
+            if (isParticipant) participantIds.add(id)
+            if (isAssigned || isParticipant) matchedIds.add(id)
+          }
+          if (!hasNextPage(result.response, rows, page)) break
+          page += 1
+        }
+      }
+    }
+
+    const truncated = projectPagesLimited || workitemPagesLimited
+    stats.truncatedReason = [
+      projectPagesLimited ? 'projects' : '',
+      workitemPagesLimited ? 'workitems' : '',
+    ].filter(Boolean).join('+')
+
+    return {
+      selectedOrganizationId,
+      selectedProjectId,
+      scope: selectedScope,
+      total: matchedIds.size,
+      assigned: assignedIds.size,
+      participant: participantIds.size,
       truncated,
       stats,
     }
@@ -535,5 +679,5 @@ export function createCodeupApi(fetchImpl = globalThis.fetch) {
     return normalizeWorkitem(objectBody(result))
   }
 
-  return { load, detail }
+  return { load, count, detail }
 }
