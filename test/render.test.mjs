@@ -5,7 +5,7 @@ import vm from 'node:vm'
 
 const zhDict = {
   title: 'Git 工作台', subtitle: '管理 Git 账户与 Codeup 工作项', back: '返回对话',
-  accountSelect: '选择 Git 账户', add: '新增', addAccount: '新增 Git 账户',
+  accountSelect: '选择 Git 账户', addAccount: '新增 Git 账户',
   manageAccounts: '管理账户', accountListTitle: '管理 Git 账户',
   accountListEmpty: '当前没有已配置的 Git 账户。', currentAccount: '当前',
   backToList: '返回列表', close: '关闭',
@@ -27,10 +27,10 @@ const zhDict = {
   truncated: '结果可能不完整：本次查询已达到扫描上限。',
   detailLoading: '正在读取详情…', detailError: '详情读取失败。',
   description: '任务描述', noDescription: '暂无描述。',
-  serialNumber: '编号', type: '类型', status: '状态', assignedTo: '负责人',
+  serialNumber: '编号', type: '类型', typeBug: '缺陷', typeTask: '任务', typeReq: '需求', status: '状态', assignedTo: '负责人',
   participants: '参与人', creator: '创建人', updatedAt: '更新时间', createdAt: '创建时间',
   labels: '标签', otherFields: '其他字段', openInCodeup: '在云效中打开',
-  relationAssigned: '负责', relationParticipant: '参与',
+  relationAssigned: '负责人', relationParticipant: '参与人',
   actionStart: '开始', actionContinue: '继续',
   copyCode: '复制代码', copied: '已复制', footnotes: '注释',
   noOrganizations: '这个账户没有可用的云效组织。', noProjects: '这个组织下没有可用项目。',
@@ -184,6 +184,7 @@ function issueData(overrides = {}) {
 
 function pageStates(data, {
   modal = { kind: 'closed', accountId: '', returnToList: false },
+  setModal = () => {},
   deletingId = '',
   platform = 'github',
   username = '',
@@ -194,7 +195,7 @@ function pageStates(data, {
 } = {}) {
   return {
     GitWorkbenchPage: [
-      [modal, () => {}],
+      [modal, setModal],
       [deletingId, () => {}],
       [platform, () => {}],
       [username, () => {}],
@@ -234,16 +235,25 @@ test('renders left-right split workbench, Markdown description, total count, and
   const { render, form } = harness()
   form.snapshot = accountSnapshot()
   const data = issueData()
-  const { text, nodes } = render(pageStates(data))
+  const { text, texts, nodes } = render(pageStates(data))
 
   for (const expected of [
     '修复登录超时', 'EWUX-3759', '处理中', '任务', '项目一', '宋传伟', '周冬伟',
     '任务内容', '把登录超时从', '30s', '60s', '检查网关超时',
-    '优先级', '高', '我负责或参与', '负责', '参与',
+    '优先级', '高', '负责人', '参与人',
     '共 1+ 个工作项', '结果可能不完整', '在云效中打开', '任务描述', '其他字段', '更新时间',
   ]) {
     assert.ok(text.includes(expected), `missing rendered text: ${expected}`)
   }
+  assert.equal(text.includes('我负责或参与'), false)
+  assert.equal(texts.includes('Codeup 工作项'), false)
+
+  // Account tools sit in the bottom-left toolbar rather than the top-right header
+  const headerIdx = nodes.findIndex(node => node.tag === 'header')
+  const toolbarIdx = nodes.findIndex(node => String(node.props.className).includes('__issueToolbar'))
+  const toolbarLeftIdx = nodes.findIndex(node => String(node.props.className).includes('__issueToolbarLeft'))
+  const accountToolsIdx = nodes.findIndex(node => String(node.props.className).includes('__accountTools'))
+  assert.ok(headerIdx >= 0 && toolbarIdx > headerIdx && toolbarLeftIdx > toolbarIdx && accountToolsIdx > toolbarLeftIdx)
 
   // Split layout containers
   assert.ok(nodes.some(node => String(node.props.className).includes('__split')))
@@ -266,7 +276,7 @@ test('renders left-right split workbench, Markdown description, total count, and
   assert.equal(links.length, 1)
   assert.equal(
     links[0].props.href,
-    'https://devops.aliyun.com/projExcellence/org-1/proj-1?workItemFilter=all&workItemId=issue-1',
+    'https://devops.aliyun.com/projex/project/proj-1/task/issue-1',
   )
   assert.equal(links[0].props.target, '_blank')
   assert.equal(links[0].props.rel, 'noopener noreferrer')
@@ -306,23 +316,88 @@ test('uses DSH native Menu, Modal, and MarkdownText primitives when available', 
   assert.ok(markdownCalls[0].text.includes('## 任务内容'))
 })
 
-test('shows Start/Continue buttons strictly according to workitem status', () => {
+test('derives Start/Continue buttons and status badge styles from statusStageId while displaying raw status names', () => {
   const { render, form } = harness()
   form.snapshot = accountSnapshot()
   const items = [
     makeIssue({ id: 'i-todo', title: '待处理任务', statusStageId: '1', status: { name: '待处理', displayName: '待处理', nameEn: 'To Do' } }),
-    makeIssue({ id: 'i-new', title: '新建需求', statusStageId: '1', status: { name: '需求池', displayName: '需求池', nameEn: 'Backlog' } }),
+    makeIssue({ id: 'i-custom-open', title: '自定义初始任务', statusStageId: '1', status: { name: '自定义初始态', displayName: '自定义初始态', nameEn: null } }),
     makeIssue({ id: 'i-doing', title: '处理中任务', statusStageId: '2', status: { name: '处理中', displayName: '处理中', nameEn: 'In Progress' } }),
-    makeIssue({ id: 'i-reject', title: '测试未通过任务', statusStageId: '2', status: { name: '测试未通过', displayName: '测试未通过', nameEn: 'Rejected' } }),
-    makeIssue({ id: 'i-testing', title: '待测试任务', statusStageId: '2', status: { name: '待测试', displayName: '待测试', nameEn: 'To Test' } }),
+    makeIssue({ id: 'i-selftested', title: '已自测任务', statusStageId: '2', status: { name: '已自测', displayName: '已自测', nameEn: null } }),
+    makeIssue({ id: 'i-fixed', title: '已修复缺陷', statusStageId: '3', status: { name: '已修复', displayName: '已修复', nameEn: 'Fixed' } }),
     makeIssue({ id: 'i-done', title: '已完成任务', statusStageId: '4', status: { name: '已完成', displayName: '已完成', nameEn: 'Done' } }),
+    makeIssue({ id: 'i-canceled', title: '已取消任务', statusStageId: '5', status: { name: '已取消', displayName: '已取消', nameEn: 'Canceled' } }),
   ]
   const data = issueData({ items, totalCount: items.length, truncated: false })
-  const { nodes } = render(pageStates(data, { selectedIssueId: 'i-todo' }))
+  const { nodes, text } = render(pageStates(data, {
+    selectedIssueId: 'i-fixed',
+    detailItem: items[4],
+  }))
+
+  for (const label of ['待处理', '自定义初始态', '处理中', '已自测', '已修复', '已完成', '已取消']) {
+    assert.ok(text.includes(label), `missing raw status label: ${label}`)
+  }
+
   const actionButtons = nodes.filter(node => node.tag === 'button' && String(node.props.className).includes('__taskActionBtn'))
   assert.deepEqual(
     actionButtons.map(btn => btn.props['data-action']),
     ['start', 'start', 'continue', 'continue'],
+  )
+
+  const detailIdx = nodes.findIndex(node => String(node.props.className).includes('__detailHeaderMeta'))
+  assert.ok(detailIdx >= 0)
+  const listStatusBadges = nodes.slice(0, detailIdx).filter(node =>
+    node.tag === 'span'
+    && String(node.props.className).includes('__issueBadge')
+    && !node.props['data-workitem-kind']
+    && !String(node.props.className).includes('__issueBadgeRelation'),
+  )
+  assert.deepEqual(
+    listStatusBadges.map(node => node.props.className),
+    [
+      'dsh-dev-dashboard__issueBadge',
+      'dsh-dev-dashboard__issueBadge',
+      'dsh-dev-dashboard__issueBadge dsh-dev-dashboard__issueBadgeActive',
+      'dsh-dev-dashboard__issueBadge dsh-dev-dashboard__issueBadgeActive',
+      'dsh-dev-dashboard__issueBadge dsh-dev-dashboard__issueBadgeVerify',
+      'dsh-dev-dashboard__issueBadge dsh-dev-dashboard__issueBadgeDone',
+      'dsh-dev-dashboard__issueBadge',
+    ],
+  )
+
+  const detailTitleIdx = nodes.findIndex((node, idx) => idx > detailIdx && String(node.props.className).includes('__detailTitle'))
+  const detailBadges = nodes.slice(detailIdx, detailTitleIdx).filter(node =>
+    node.tag === 'span' && String(node.props.className).includes('__issueBadge'),
+  )
+  assert.ok(detailBadges.some(node => node.props.className === 'dsh-dev-dashboard__issueBadge dsh-dev-dashboard__issueBadgeVerify'))
+})
+
+test('renders distinct workitem type badges for bugs, tasks, and requirements', () => {
+  const { render, form } = harness()
+  form.snapshot = accountSnapshot()
+  const items = [
+    makeIssue({ id: 'i-bug', title: '登录报错', categoryId: 'Bug', workitemType: { id: 'type-bug', name: '缺陷' } }),
+    makeIssue({ id: 'i-task', title: '接口联调', categoryId: 'Task', workitemType: { id: 'type-task', name: '任务' } }),
+    makeIssue({ id: 'i-req', title: '支持扫码', categoryId: 'Req', workitemType: null }),
+    makeIssue({ id: 'i-en-bug', title: '空指针异常', categoryId: 'Bug', workitemType: { id: 'type-bug-en', name: 'Bug' } }),
+  ]
+  const data = issueData({ items, totalCount: items.length, truncated: false })
+  const { text, nodes } = render(pageStates(data, { selectedIssueId: 'i-bug' }))
+
+  assert.ok(text.includes('缺陷'))
+  assert.ok(text.includes('任务'))
+  assert.ok(text.includes('需求'))
+
+  const typeBadges = nodes.filter(node => node.tag === 'span' && node.props['data-workitem-kind'])
+  assert.equal(typeBadges.length, 4)
+  assert.deepEqual(
+    typeBadges.map(node => ({ kind: node.props['data-workitem-kind'], className: node.props.className })),
+    [
+      { kind: 'bug', className: 'dsh-dev-dashboard__issueBadge dsh-dev-dashboard__issueBadgeTypeBug' },
+      { kind: 'task', className: 'dsh-dev-dashboard__issueBadge dsh-dev-dashboard__issueBadgeTypeTask' },
+      { kind: 'req', className: 'dsh-dev-dashboard__issueBadge dsh-dev-dashboard__issueBadgeTypeReq' },
+      { kind: 'bug', className: 'dsh-dev-dashboard__issueBadge dsh-dev-dashboard__issueBadgeTypeBug' },
+    ],
   )
 })
 
@@ -331,9 +406,20 @@ test('account management modal lists all Git platform accounts for individual ed
   form.snapshot = accountSnapshot([{ id: 'acc-2', platform: 'github', username: 'octocat' }])
   const data = issueData()
 
-  // Header shows manage accounts button instead of separate single-account edit/delete icons
-  const closedRender = render(pageStates(data))
+  // Toolbar shows manage accounts button without a redundant standalone add button
+  const toolbarModalCalls = []
+  const closedRender = render(pageStates(data, { setModal: next => toolbarModalCalls.push(next) }))
   assert.ok(closedRender.text.includes('管理账户'))
+  assert.equal(closedRender.texts.includes('新增'), false)
+  const toolbarManageBtn = closedRender.nodes.find(
+    node => node.tag === 'button' && node.props['aria-label'] === '管理账户',
+  )
+  assert.ok(toolbarManageBtn)
+  toolbarManageBtn.props.onClick()
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(toolbarModalCalls)),
+    [{ kind: 'list', accountId: '', returnToList: false }],
+  )
 
   // Account list modal displays all configured accounts
   const listRender = render(pageStates(data, {
@@ -371,23 +457,82 @@ test('account management modal lists all Git platform accounts for individual ed
   assert.equal(usernameInput.props.value, 'octocat')
 })
 
-test('encodes every Yunxiao URL segment and shows unsupported notice for other platforms', () => {
+test('empty state without accounts unifies on manage accounts modal', () => {
+  const { render, form } = harness()
+  form.snapshot = {
+    status: 'ready', writable: true,
+    value: { accounts: [], selectedAccountId: '' },
+  }
+  const emptyModalCalls = []
+  const emptyRender = render(pageStates(issueData(), { setModal: next => emptyModalCalls.push(next) }))
+  assert.ok(emptyRender.text.includes('还没有 Git 账户'))
+  assert.ok(emptyRender.text.includes('管理账户'))
+  assert.equal(emptyRender.texts.includes('新增 Git 账户'), false)
+  assert.equal(emptyRender.texts.includes('新增'), false)
+  const emptyManageBtn = emptyRender.nodes.find(
+    node => node.tag === 'button' && node.props['aria-label'] === '管理账户',
+  )
+  assert.ok(emptyManageBtn)
+  emptyManageBtn.props.onClick()
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(emptyModalCalls)),
+    [{ kind: 'list', accountId: '', returnToList: false }],
+  )
+
+  // Opening the manage accounts modal when empty shows the empty list state and add action inside
+  const listModalCalls = []
+  const emptyListRender = render(pageStates(issueData(), {
+    modal: { kind: 'list', accountId: '', returnToList: false },
+    setModal: next => listModalCalls.push(next),
+  }))
+  assert.ok(emptyListRender.text.includes('管理 Git 账户'))
+  assert.ok(emptyListRender.text.includes('当前没有已配置的 Git 账户。'))
+  assert.ok(emptyListRender.text.includes('新增 Git 账户'))
+  const addInModalBtn = emptyListRender.nodes.find(
+    node => node.tag === 'button'
+      && node.props.className === 'dsh-dev-dashboard__button'
+      && typeof node.props.onClick === 'function',
+  )
+  assert.ok(addInModalBtn)
+  addInModalBtn.props.onClick()
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(listModalCalls)),
+    [{ kind: 'add', accountId: '', returnToList: true }],
+  )
+})
+
+test('encodes every Yunxiao URL segment, maps categories, and shows unsupported notice for other platforms', () => {
   const { render, form } = harness()
   const data = issueData({
-    selectedOrganizationId: 'org/../evil?x=1',
     projects: [{ id: 'proj/../bad', name: '项目一' }],
   })
+  data.items[0].id = 'issue/../evil?x=1'
   data.items[0].space = { id: 'proj/../bad', name: '项目一' }
 
   form.snapshot = accountSnapshot()
-  const encoded = render(pageStates(data))
+  const encoded = render(pageStates(data, { selectedIssueId: 'issue/../evil?x=1' }))
   const link = encoded.nodes.find(node => node.tag === 'a')
   assert.ok(link)
-  assert.ok(link.props.href.startsWith('https://devops.aliyun.com/projExcellence/'))
+  assert.equal(
+    link.props.href,
+    'https://devops.aliyun.com/projex/project/proj%2F..%2Fbad/task/issue%2F..%2Fevil%3Fx%3D1',
+  )
   assert.equal(link.props.href.includes('../'), false)
   assert.equal(link.props.href.includes('?x=1'), false)
-  assert.ok(link.props.href.includes('org%2F..%2Fevil%3Fx%3D1'))
-  assert.ok(link.props.href.includes('proj%2F..%2Fbad'))
+
+  for (const [categoryId, expectedPath] of [['Req', 'req'], ['Bug', 'bug'], ['Task', 'task']]) {
+    const typedData = issueData({ items: [makeIssue({ categoryId })] })
+    const typedLink = render(pageStates(typedData)).nodes.find(node => node.tag === 'a')
+    assert.equal(
+      typedLink?.props.href,
+      `https://devops.aliyun.com/projex/project/proj-1/${expectedPath}/issue-1`,
+    )
+  }
+
+  const unknownCategoryData = issueData({
+    items: [makeIssue({ categoryId: '../../evil', workitemType: { id: 'custom', name: '自定义' } })],
+  })
+  assert.equal(render(pageStates(unknownCategoryData)).nodes.some(node => node.tag === 'a'), false)
 
   form.snapshot = {
     status: 'ready', writable: true,
@@ -398,6 +543,8 @@ test('encodes every Yunxiao URL segment and shows unsupported notice for other p
   }
   const unsupported = render(pageStates(data))
   assert.ok(unsupported.text.includes('该平台尚未接入 Issue 获取'))
+  assert.ok(unsupported.text.includes('管理账户'))
+  assert.ok(unsupported.nodes.some(node => String(node.props.className).includes('__accountTools')))
   assert.equal(unsupported.nodes.some(node => node.tag === 'a'), false)
 })
 

@@ -26,7 +26,6 @@ window.__ModuleLoader__.load({
       subtitle: '管理 Git 账户与 Codeup 工作项',
       back: '返回对话',
       accountSelect: '选择 Git 账户',
-      add: '新增',
       addAccount: '新增 Git 账户',
       manageAccounts: '管理账户',
       accountListTitle: '管理 Git 账户',
@@ -65,7 +64,6 @@ window.__ModuleLoader__.load({
       accountSaveError: '账户信息保存失败，请重试。',
       selectionSaveError: '当前账户选择保存失败，请重试。',
       issues: 'Codeup 工作项',
-      scopeAll: '我负责或参与',
       organization: '组织',
       project: '项目',
       allProjects: '全部项目',
@@ -93,6 +91,9 @@ window.__ModuleLoader__.load({
       noDescription: '暂无描述。',
       serialNumber: '编号',
       type: '类型',
+      typeBug: '缺陷',
+      typeTask: '任务',
+      typeReq: '需求',
       status: '状态',
       assignedTo: '负责人',
       participants: '参与人',
@@ -102,8 +103,8 @@ window.__ModuleLoader__.load({
       labels: '标签',
       otherFields: '其他字段',
       openInCodeup: '在云效中打开',
-      relationAssigned: '负责',
-      relationParticipant: '参与',
+      relationAssigned: '负责人',
+      relationParticipant: '参与人',
       actionStart: '开始',
       actionContinue: '继续',
       copyCode: '复制代码',
@@ -122,7 +123,6 @@ window.__ModuleLoader__.load({
       subtitle: 'Manage Git accounts and Codeup work items',
       back: 'Back to conversation',
       accountSelect: 'Select Git account',
-      add: 'Add',
       addAccount: 'Add Git account',
       manageAccounts: 'Manage accounts',
       accountListTitle: 'Manage Git accounts',
@@ -161,7 +161,6 @@ window.__ModuleLoader__.load({
       accountSaveError: 'The account details could not be saved. Try again.',
       selectionSaveError: 'The current account selection could not be saved. Try again.',
       issues: 'Codeup work items',
-      scopeAll: 'Assigned or participating',
       organization: 'Organization',
       project: 'Project',
       allProjects: 'All projects',
@@ -189,6 +188,9 @@ window.__ModuleLoader__.load({
       noDescription: 'No description.',
       serialNumber: 'Number',
       type: 'Type',
+      typeBug: 'Bug',
+      typeTask: 'Task',
+      typeReq: 'Requirement',
       status: 'Status',
       assignedTo: 'Assignee',
       participants: 'Participants',
@@ -484,46 +486,75 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * Classify the action button shown on each work item in the left list:
-     * - "继续" ('continue'): 处理中 / 进行中 / 开发中 / 未通过 / 不通过
-     * - "开始" ('start'): statuses before 处理中 (Yunxiao stage 1 or pre-progress names)
-     * - null: all other states (done, closed, cancelled, testing, verifying, etc.)
+     * Classify work item action and badge style strictly from Yunxiao's `statusStageId`:
+     * - '1': not started / open -> 'start' button, neutral badge
+     * - '2': in progress        -> 'continue' button, active (blue) badge
+     * - '3': verifying / fixed  -> no button, verify (amber) badge
+     * - '4': done / closed      -> no button, done (green) badge
+     * - '5': canceled           -> no button, neutral badge
      */
-    function workitemActionKind(issue) {
-      const rawName = String(issue?.status?.displayName || issue?.status?.name || issue?.statusName || '').trim()
-      const nameEn = String(issue?.status?.nameEn || '').trim().toLowerCase()
+    const WORKITEM_STAGE_META = {
+      1: { action: 'start', badgeClass: '' },
+      2: { action: 'continue', badgeClass: `${CN}__issueBadgeActive` },
+      3: { action: null, badgeClass: `${CN}__issueBadgeVerify` },
+      4: { action: null, badgeClass: `${CN}__issueBadgeDone` },
+      5: { action: null, badgeClass: '' },
+    }
+
+    function workitemStageMeta(issue) {
       const stageId = String(issue?.statusStageId || '').trim()
+      return Object.hasOwn(WORKITEM_STAGE_META, stageId)
+        ? WORKITEM_STAGE_META[stageId]
+        : { action: null, badgeClass: '' }
+    }
 
-      // 1. In-progress or rejected / not-passed -> "继续"
-      if (
-        rawName.includes('未通过')
-        || rawName.includes('不通过')
-        || /(处理中|进行中|开发中|修复中)/.test(rawName)
-        || /\b(in progress|doing|developing|rejected|not pass(?:ed)?|failed)\b/.test(nameEn)
-      ) {
-        return 'continue'
+    const YUNXIAO_CATEGORY_PATHS = {
+      req: 'req',
+      bug: 'bug',
+      task: 'task',
+      risk: 'risk',
+      request: 'request',
+      topic: 'topic',
+    }
+
+    function workitemCategoryKind(issue) {
+      const category = String(issue?.categoryId || '').trim().toLowerCase()
+      if (Object.hasOwn(YUNXIAO_CATEGORY_PATHS, category)) {
+        return YUNXIAO_CATEGORY_PATHS[category]
       }
+      const rawName = String(issue?.workitemType?.name || '').trim()
+      const lowerName = rawName.toLowerCase()
+      if (lowerName === 'bug' || lowerName === 'defect' || rawName.includes('缺陷')) return 'bug'
+      if (lowerName === 'task' || rawName.includes('任务')) return 'task'
+      if (lowerName === 'req' || lowerName === 'requirement' || rawName.includes('需求')) return 'req'
+      return ''
+    }
 
-      // 2. Done / closed / post-in-progress QA/release states -> no button
-      if (
-        stageId === '4'
-        || /(已完成|已关闭|已取消|已解决|已修复|已发布|已上线|已验收|已拒绝|已搁置|已废弃|已忽略|暂不处理|待测试|测试中|待验收|验收中|待发布|发布中|待验证|验证中|待合入)/.test(rawName)
-        || /^(完成|关闭|取消)$/.test(rawName)
-        || /\b(done|closed|resolved|fixed|cancel(?:led|ed)|released|completed|testing|to test|verifying|to verify|to release)\b/.test(nameEn)
-      ) {
-        return null
+    function workitemTypeBadge(t, issue) {
+      const kind = workitemCategoryKind(issue)
+      const rawName = String(issue?.workitemType?.name || '').trim()
+      const lowerName = rawName.toLowerCase()
+
+      let label = rawName
+      if ((!label || lowerName === 'bug' || lowerName === 'defect') && kind === 'bug') {
+        label = t('typeBug')
+      } else if ((!label || lowerName === 'task') && kind === 'task') {
+        label = t('typeTask')
+      } else if ((!label || lowerName === 'req' || lowerName === 'requirement') && kind === 'req') {
+        label = t('typeReq')
+      } else if (!label) {
+        label = String(issue?.categoryId || '').trim()
       }
+      if (!label) return null
 
-      // 3. Before 处理中 -> "开始"
-      if (
-        stageId === '1'
-        || /(待处理|待开始|待开发|待确认|待排期|待评审|待分析|待修复|待设计|待分解|待认领|未开始|新建|新提交|需求池|已规划|已确认|重新打开)/.test(rawName)
-        || /\b(open|new|to do|todo|pending|backlog|confirmed|planned|ready|reopened)\b/.test(nameEn)
-      ) {
-        return 'start'
-      }
-
-      return null
+      const className = kind === 'bug'
+        ? `${CN}__issueBadgeTypeBug`
+        : kind === 'task'
+          ? `${CN}__issueBadgeTypeTask`
+          : kind === 'req'
+            ? `${CN}__issueBadgeTypeReq`
+            : ''
+      return { kind, label, className }
     }
 
     function looksLikeMarkdown(text) {
@@ -692,17 +723,17 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * Yunxiao's workitem API does not return a Web URL. This pattern is the
-     * observed Projex workitem deep link, not an API-guaranteed field; every
-     * segment is encoded and only the fixed official host is used.
+     * Yunxiao's workitem API does not return a Web URL. Projex workitems resolve
+     * at `/projex/project/<projectId>/<category>/<workitemId>`, where `<category>`
+     * is an allowlisted lowercase workitem category (`req`, `bug`, `task`, ...).
+     * Every dynamic segment is encoded and only the fixed official host is used.
      */
-    function codeupWebUrl(organizationId, spaceId, issueId) {
-      const org = String(organizationId || '').trim()
+    function codeupWebUrl(spaceId, category, issueId) {
       const space = String(spaceId || '').trim()
+      const type = String(category || '').trim().toLowerCase()
       const id = String(issueId || '').trim()
-      if (!org || !space || !id) return ''
-      return `https://devops.aliyun.com/projExcellence/${encodeURIComponent(org)}/${encodeURIComponent(space)}`
-        + `?workItemFilter=all&workItemId=${encodeURIComponent(id)}`
+      if (!space || !id || !Object.hasOwn(YUNXIAO_CATEGORY_PATHS, type)) return ''
+      return `https://devops.aliyun.com/projex/project/${encodeURIComponent(space)}/${YUNXIAO_CATEGORY_PATHS[type]}/${encodeURIComponent(id)}`
     }
 
     function DetailRow({ label, value }) {
@@ -743,16 +774,19 @@ window.__ModuleLoader__.load({
 
       const detail = state.detail || issue
       const statusName = detail.status?.name || detail.status?.displayName || detail.statusName || '—'
-      const done = String(detail.statusStageId || issue.statusStageId || '') === '4'
+      const statusClass = workitemStageMeta({ statusStageId: detail.statusStageId || issue.statusStageId }).badgeClass
       const relations = Array.isArray(issue.relations) ? issue.relations : []
+      const typeBadge = workitemTypeBadge(t, detail) || workitemTypeBadge(t, issue)
       const fields = state.detail?.customFieldValues ?? []
-      const webUrl = codeupWebUrl(organizationId, detail.space?.id || issue.space?.id, issue.id)
+      const categoryPath = workitemCategoryKind(detail) || workitemCategoryKind(issue)
+      const webUrl = codeupWebUrl(detail.space?.id || issue.space?.id, categoryPath, detail.id || issue.id)
 
       return h('div', { className: `${CN}__detailScroll` },
         h('div', { className: `${CN}__detailHeader` },
           h('div', { className: `${CN}__detailHeaderMeta` },
             h('span', { className: `${CN}__issueSerial` }, detail.serialNumber || issue.serialNumber || issue.id),
-            h('span', { className: `${CN}__issueBadge ${done ? `${CN}__issueBadgeDone` : ''}`.trim() }, statusName),
+            typeBadge && h('span', { className: `${CN}__issueBadge ${typeBadge.className}`.trim() }, typeBadge.label),
+            h('span', { className: `${CN}__issueBadge ${statusClass}`.trim() }, statusName),
             relations.includes('assigned') && h('span', { className: `${CN}__issueBadge ${CN}__issueBadgeRelation` }, t('relationAssigned')),
             relations.includes('participant') && h('span', { className: `${CN}__issueBadge ${CN}__issueBadgeRelation` }, t('relationParticipant')),
           ),
@@ -794,17 +828,9 @@ window.__ModuleLoader__.load({
 
     function IssueListItem({ t, issue, selected, onSelect }) {
       const statusName = issue.status?.name || issue.status?.displayName || issue.statusName || '—'
-      const done = String(issue.statusStageId || '') === '4'
       const relations = Array.isArray(issue.relations) ? issue.relations : []
-      const actionKind = workitemActionKind(issue)
-      const isRejected = statusName.includes('未通过') || statusName.includes('不通过')
-      const statusClass = done
-        ? `${CN}__issueBadgeDone`
-        : isRejected
-          ? `${CN}__issueBadgeWarn`
-          : actionKind === 'continue'
-            ? `${CN}__issueBadgeActive`
-            : ''
+      const typeBadge = workitemTypeBadge(t, issue)
+      const { action: actionKind, badgeClass: statusClass } = workitemStageMeta(issue)
 
       return h('div', {
         role: 'button',
@@ -827,13 +853,16 @@ window.__ModuleLoader__.load({
       h('div', { className: `${CN}__issueBottomRow` },
         h('div', { className: `${CN}__issueInfoCol` },
           h('div', { className: `${CN}__issueBadges` },
+            typeBadge && h('span', {
+              className: `${CN}__issueBadge ${typeBadge.className}`.trim(),
+              'data-workitem-kind': typeBadge.kind || undefined,
+            }, typeBadge.label),
             h('span', { className: `${CN}__issueBadge ${statusClass}`.trim() }, statusName),
             relations.includes('assigned') && h('span', { className: `${CN}__issueBadge ${CN}__issueBadgeRelation` }, t('relationAssigned')),
             relations.includes('participant') && h('span', { className: `${CN}__issueBadge ${CN}__issueBadgeRelation` }, t('relationParticipant')),
           ),
           h('div', { className: `${CN}__issueMeta` },
             h('span', null, issue.project?.name || issue.space?.name || '—'),
-            h('span', null, issue.workitemType?.name || issue.categoryId || '—'),
             h('span', null, formatDate(issue.gmtModified)),
           ),
         ),
@@ -888,7 +917,7 @@ window.__ModuleLoader__.load({
       return `${t('loadedCount')} ${loadedCount}+ ${t('issueCount')}`
     }
 
-    function IssueWorkbench({ t, rpc, account }) {
+    function IssueWorkbench({ t, rpc, account, accountTools }) {
       const [organizationId, setOrganizationId] = React.useState('')
       const [projectId, setProjectId] = React.useState('all')
       const [reload, setReload] = React.useState(0)
@@ -1116,12 +1145,24 @@ window.__ModuleLoader__.load({
       }, [hasMore, loading, loadingMore, loadMoreError, loadMore])
 
       if (account.platform !== 'codeup') {
-        return h('section', { className: `${CN}__issueUnsupported` },
-          h('h2', null, t('unsupportedIssues')),
-          h('p', null, t('unsupportedDescription')),
+        return h('section', { className: `${CN}__issues` },
+          accountTools && h('div', { className: `${CN}__issueToolbar` },
+            h('div', { className: `${CN}__issueToolbarLeft` }, accountTools),
+          ),
+          h('div', { className: `${CN}__issueUnsupported` },
+            h('h2', null, t('unsupportedIssues')),
+            h('p', null, t('unsupportedDescription')),
+          ),
         )
       }
-      if (!rpc) return h('p', { className: `${CN}__error`, role: 'alert' }, t('issueUnavailable'))
+      if (!rpc) {
+        return h('section', { className: `${CN}__issues` },
+          accountTools && h('div', { className: `${CN}__issueToolbar` },
+            h('div', { className: `${CN}__issueToolbarLeft` }, accountTools),
+          ),
+          h('p', { className: `${CN}__error`, role: 'alert' }, t('issueUnavailable')),
+        )
+      }
 
       const orgOptions = organizations.map(item => ({ value: item.id, label: item.name }))
       const projectOptions = [
@@ -1138,10 +1179,7 @@ window.__ModuleLoader__.load({
 
       return h('section', { className: `${CN}__issues`, 'aria-label': t('issues'), 'aria-busy': loading || loadingMore },
         h('div', { className: `${CN}__issueToolbar` },
-          h('div', { className: `${CN}__issueToolbarLeft` },
-            h('h2', null, t('issues')),
-            h('span', { className: `${CN}__scopeNote` }, t('scopeAll')),
-          ),
+          h('div', { className: `${CN}__issueToolbarLeft` }, accountTools),
           h('div', { className: `${CN}__issueToolbarRight` },
             data && h(NativeSelect, {
               className: `${CN}__filterSelect`,
@@ -1538,31 +1576,27 @@ window.__ModuleLoader__.load({
         label: `${platformName(account.platform)} · ${account.username}`,
       }))
 
+      const accountTools = accounts.length > 0 && h('div', { className: `${CN}__accountTools` },
+        h(NativeSelect, {
+          className: `${CN}__accountSelect`,
+          value: selected?.id ?? '',
+          options: accountOptions,
+          disabled: busy || selectionBusy || !canWrite,
+          ariaLabel: t('accountSelect'),
+          onChange: selectAccount,
+        }),
+        h('button', {
+          type: 'button', className: `${CN}__button`,
+          disabled: busy || selectionBusy || !canWrite,
+          onClick: openListModal,
+          'aria-label': t('manageAccounts'),
+        }, h(EditIcon), t('manageAccounts')),
+      )
+
       const header = h('header', { className: `${CN}__header` },
         h('div', { className: `${CN}__heading` },
           h('h1', null, t('title')),
           h('p', null, t('subtitle')),
-        ),
-        accounts.length > 0 && h('div', { className: `${CN}__accountTools` },
-          h(NativeSelect, {
-            className: `${CN}__accountSelect`,
-            value: selected?.id ?? '',
-            options: accountOptions,
-            disabled: busy || selectionBusy || !canWrite,
-            ariaLabel: t('accountSelect'),
-            align: 'end',
-            onChange: selectAccount,
-          }),
-          h('button', {
-            type: 'button', className: `${CN}__button ${CN}__buttonPrimary`,
-            disabled: busy || !canWrite, onClick: () => openAddModal(false),
-          }, h(PlusIcon), t('add')),
-          h('button', {
-            type: 'button', className: `${CN}__button`,
-            disabled: busy || selectionBusy || !canWrite,
-            onClick: openListModal,
-            'aria-label': t('manageAccounts'),
-          }, h(EditIcon), t('manageAccounts')),
         ),
       )
 
@@ -1610,11 +1644,13 @@ window.__ModuleLoader__.load({
             h('p', null, t('emptyDescription')),
             h('button', {
               type: 'button', className: `${CN}__button ${CN}__buttonPrimary`,
-              disabled: !canWrite, onClick: () => openAddModal(false),
-            }, h(PlusIcon), t('addAccount')),
+              disabled: busy || !canWrite,
+              onClick: openListModal,
+              'aria-label': t('manageAccounts'),
+            }, h(EditIcon), t('manageAccounts')),
           ),
           snapshot.status === 'ready' && selected
-            && h(IssueWorkbench, { key: selected.id, t, rpc, account: selected }),
+            && h(IssueWorkbench, { key: selected.id, t, rpc, account: selected, accountTools }),
         ),
         h(DialogModal, {
           open: isModalOpen,
@@ -1696,10 +1732,8 @@ window.__ModuleLoader__.load({
 .${CN}__empty p{max-width:480px;margin:8px 0 20px;color:var(--dsw-alias-label-secondary);font-size:13px;line-height:20px}
 .${CN}__issues{box-sizing:border-box;flex:1;min-height:0;display:flex;flex-direction:column}
 .${CN}__issueToolbar{flex:none;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 12px;margin-bottom:12px}
-.${CN}__issueToolbarLeft{display:flex;align-items:center;gap:8px;min-width:0}
-.${CN}__issueToolbarLeft h2{margin:0;font-size:15px;line-height:22px;font-weight:600}
+.${CN}__issueToolbarLeft{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0}
 .${CN}__issueToolbarRight{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0}
-.${CN}__scopeNote{display:inline-flex;align-items:center;min-height:20px;padding:0 8px;border:0.5px solid var(--dsw-alias-border-l3);border-radius:999px;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:18px}
 .${CN}__split{flex:1;min-height:0;display:grid;grid-template-columns:minmax(310px,375px) minmax(0,1fr);gap:14px}
 .${CN}__listPane,.${CN}__detailPane{min-height:0;display:flex;flex-direction:column;border:0.5px solid var(--dsw-alias-border-l3);border-radius:12px;background:var(--dsw-alias-bg-layer-1);overflow:hidden}
 .${CN}__listHeader{flex:none;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:0.5px solid var(--dsw-alias-border-l2,var(--dsw-alias-border-l3));background:var(--dsw-alias-bg-layer-1)}
@@ -1717,8 +1751,11 @@ window.__ModuleLoader__.load({
 .${CN}__issueBadge{display:inline-flex;align-items:center;min-height:18px;padding:0 6px;border:0.5px solid var(--dsw-alias-border-l3);border-radius:999px;color:var(--dsw-alias-label-secondary);font-size:11px;line-height:16px}
 .${CN}__issueBadgeDone{border-color:var(--dsw-alias-state-success-primary);color:var(--dsw-alias-state-success-primary)}
 .${CN}__issueBadgeActive{border-color:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-state-business-primary)}
-.${CN}__issueBadgeWarn{border-color:var(--dsw-alias-state-error-primary);color:var(--dsw-alias-state-error-primary)}
+.${CN}__issueBadgeVerify{border-color:var(--dsw-alias-state-warn-primary);color:var(--dsw-alias-state-warn-primary)}
 .${CN}__issueBadgeRelation{border-color:var(--dsw-alias-brand-primary);color:var(--dsw-alias-brand-primary)}
+.${CN}__issueBadgeTypeBug{border-color:var(--dsw-alias-state-error-primary);color:var(--dsw-alias-state-error-primary)}
+.${CN}__issueBadgeTypeTask{border-color:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-primary)}
+.${CN}__issueBadgeTypeReq{border-color:var(--dsw-alias-state-warn-primary);color:var(--dsw-alias-state-warn-primary)}
 .${CN}__issueMeta{display:flex;flex-wrap:wrap;gap:2px 8px;color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));font-size:11px;line-height:16px}
 .${CN}__taskActionBtn{flex:none;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;height:24px;padding:0 10px;border-radius:6px;font:inherit;font-size:12px;font-weight:500;line-height:1;cursor:pointer;white-space:nowrap;transition:opacity .15s ease,background-color .15s ease}
 .${CN}__taskActionStart{border:0.5px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-label-primary-foreground)}
