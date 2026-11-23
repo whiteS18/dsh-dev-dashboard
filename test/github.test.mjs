@@ -296,3 +296,51 @@ test('detail and repositories validate issueId, fetch single issue/repo, and nev
       && !error.message.includes(TOKEN),
   )
 })
+
+test('listRepositories filters by owner and search with pagination, and repository() validates and fetches one repo', async () => {
+  const { fetchImpl } = mockFetch((call) => {
+    const path = pathname(call)
+    if (path === '/user') return response({ id: 1, login: 'octocat', name: 'Octocat' })
+    if (path === '/user/repos') {
+      return response([
+        makeRepo('octocat/alpha', { private: true, language: 'TypeScript', default_branch: 'main', stargazers_count: 12, forks_count: 3, description: 'Alpha app' }),
+        makeRepo('octocat/beta', { private: false, language: 'Go', default_branch: 'master', description: 'Beta CLI' }),
+        makeRepo('acme-org/gamma', { visibility: 'internal', archived: true, language: 'Rust', description: 'Alpha backend' }),
+      ])
+    }
+    if (path === '/repos/octocat/alpha') {
+      return response(makeRepo('octocat/alpha', { private: true, language: 'TypeScript', default_branch: 'main' }))
+    }
+    throw new Error(`Unexpected path: ${path}`)
+  })
+
+  const api = createGitHubApi({ fetch: fetchImpl })
+
+  const page1 = await api.listRepositories({ token: TOKEN, page: 1, pageSize: 2 })
+  assert.deepEqual(page1.organizations.map(o => o.id), ['octocat', 'acme-org'])
+  assert.equal(page1.totalCount, 3)
+  assert.equal(page1.hasMore, true)
+  assert.equal(page1.nextPage, 2)
+  assert.deepEqual(page1.items.map(r => r.id), ['octocat/alpha', 'octocat/beta'])
+  assert.equal(page1.items[0].visibility, 'private')
+  assert.equal(page1.items[0].language, 'TypeScript')
+  assert.equal(page1.items[0].starCount, 12)
+  assert.equal(page1.items[1].visibility, 'public')
+
+  const filtered = await api.listRepositories({ token: TOKEN, organizationId: 'acme-org', search: 'alpha' })
+  assert.equal(filtered.totalCount, 1)
+  assert.equal(filtered.hasMore, false)
+  assert.equal(filtered.items[0].id, 'acme-org/gamma')
+  assert.equal(filtered.items[0].visibility, 'internal')
+  assert.equal(filtered.items[0].archived, true)
+
+  const single = await api.repository({ token: TOKEN, repositoryId: 'octocat/alpha' })
+  assert.equal(single.user.username, 'octocat')
+  assert.equal(single.repository.path, 'alpha')
+  assert.equal(single.repository.httpUrl, 'https://github.com/octocat/alpha.git')
+
+  await assert.rejects(
+    () => api.repository({ token: TOKEN, repositoryId: '../bad/repo' }),
+    error => error instanceof GitHubError && error.code === 'bad-request',
+  )
+})

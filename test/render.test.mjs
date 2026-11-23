@@ -54,6 +54,32 @@ const zhDict = {
   unsupportedIssues: '该平台尚未接入 Issue 获取',
   unsupportedDescription: '目前支持 Codeup（云效项目协作）和 GitHub 的 Issue 获取。',
   issueUnavailable: '当前连接不可用，无法读取工作项。', retry: '重试',
+  viewModeSelect: '切换视图', viewTasks: '查看任务', viewRepos: '查看仓库',
+  repos: 'Codeup 仓库', githubRepos: 'GitHub 仓库',
+  reposLoading: '正在读取 Codeup 仓库…', githubReposLoading: '正在读取 GitHub 仓库…',
+  repoCount: '个仓库', noRepos: '没有匹配的仓库',
+  noReposDescription: '可以尝试切换组织或清空搜索条件后刷新。',
+  noGithubReposDescription: '可以尝试切换所有者或清空搜索条件后刷新。',
+  selectRepoPrompt: '点击左侧仓库查看详细信息', repoSearchPlaceholder: '搜索仓库…',
+  repoUnavailable: '当前连接不可用，无法读取仓库列表。',
+  unsupportedRepos: '该平台尚未接入仓库获取',
+  unsupportedReposDescription: '目前支持 Codeup（云效）和 GitHub 的仓库获取与克隆。',
+  loadingMoreRepos: '正在加载更多仓库…', noMoreRepos: '已加载全部仓库',
+  loadMoreReposError: '加载更多仓库失败。',
+  repoVisibility: '可见性', visibilityPrivate: '私有', visibilityInternal: '内部', visibilityPublic: '公开',
+  repoArchived: '已归档', repoFork: 'Fork', repoDefaultBranch: '默认分支',
+  repoLanguage: '主要语言', repoNamespace: '命名空间', repoCloneUrls: '克隆地址',
+  repoCloneHttps: 'HTTPS', repoCloneSsh: 'SSH',
+  repoDescription: '仓库简介', repoNoDescription: '暂无简介。',
+  repoStars: '星标', repoForks: 'Fork 数', repoOpenIssues: '打开的 Issue',
+  cloneToLocal: '克隆到本地', cloningToLocal: '克隆中…',
+  repoCloneModalTitle: '克隆仓库', repoCloneLoading: '正在将该仓库克隆到 ~/project…',
+  repoCloneNotFound: '未找到该仓库的克隆地址。',
+  repoCloneSuccess: '仓库已克隆到本地。', repoCloneExists: '本地已存在该仓库。',
+  repoCloneFailed: '仓库克隆失败，请检查权限或本地目录后重试。',
+  repoCloneError: '克隆仓库失败。',
+  repoCreateWorkspacePrompt: '是否创建该仓库的工作区？',
+  repoCreateWorkspaceConfirm: '是', repoCreateWorkspaceCancel: '否',
 }
 
 const source = await readFile(new URL('../dist/client.js', import.meta.url), 'utf8')
@@ -322,8 +348,8 @@ test('uses DSH native Menu, Modal, and MarkdownText primitives when available', 
   const data = issueData()
   const { nodes } = render(pageStates(data, { modal: { kind: 'add', accountId: '', returnToList: false } }))
 
-  // Account selector, org selector, project selector, and form platform selector all use DSH native Menu
-  assert.equal(menuCalls.length, 4)
+  // Account selector, view mode selector, org selector, project selector, and form platform selector all use DSH native Menu
+  assert.equal(menuCalls.length, 5)
   assert.equal(nodes.some(node => node.tag === 'select'), false)
   // Modal uses DSH native Modal
   assert.equal(modalCalls.length, 1)
@@ -1144,4 +1170,387 @@ test('clicking Start or Continue selects the issue and triggers cloneRepos RPC',
     { accountId: 'acc-1', organizationId: 'org-1', issueId: 'issue-continue' },
     { accountId: 'acc-1', organizationId: 'org-1', issueId: 'issue-continue' },
   ])
+})
+
+test('places view mode selector between account selector and manage accounts button, and renders repository view with clone button and workspace prompt', () => {
+  const { render, form } = harness()
+  form.snapshot = {
+    status: 'ready',
+    writable: true,
+    value: {
+      accounts: [
+        { id: 'acc-gh', platform: 'github', username: 'octocat' },
+        { id: 'acc-cu', platform: 'codeup', username: 'tester' },
+      ],
+      selectedAccountId: 'acc-gh',
+    },
+  }
+
+  const repo = {
+    id: 'octocat/demo-app',
+    organizationId: 'octocat',
+    name: 'demo-app',
+    path: 'demo-app',
+    pathWithNamespace: 'octocat/demo-app',
+    fullName: 'octocat/demo-app',
+    owner: 'octocat',
+    description: 'Demo application repo',
+    visibility: 'private',
+    archived: false,
+    isFork: false,
+    defaultBranch: 'main',
+    language: 'TypeScript',
+    starCount: 7,
+    forkCount: 2,
+    openIssuesCount: 4,
+    httpUrl: 'https://github.com/octocat/demo-app.git',
+    sshUrl: 'git@github.com:octocat/demo-app.git',
+    webUrl: 'https://github.com/octocat/demo-app',
+    gmtCreate: '2026-01-01T00:00:00.000Z',
+    gmtModified: '2026-11-20T12:00:00.000Z',
+  }
+  const repoData = {
+    user: { id: '1', username: 'octocat' },
+    organizations: [{ id: 'octocat', name: 'octocat' }],
+    selectedOrganizationId: 'all',
+    items: [repo],
+    totalCount: 1,
+    page: 1,
+    hasMore: false,
+    nextPage: null,
+    truncated: false,
+  }
+
+  const viewModeChanges = []
+  const rendered = render({
+    GitWorkbenchPage: [
+      [{ kind: 'closed', accountId: '', returnToList: false }, () => {}],
+      ['', () => {}],
+      ['github', () => {}],
+      ['', () => {}],
+      ['', () => {}],
+      [false, () => {}],
+      [false, () => {}],
+      ['', () => {}],
+      ['repos', next => viewModeChanges.push(next)],
+    ],
+    RepoWorkbench: [
+      ['', () => {}],
+      ['', () => {}],
+      ['', () => {}],
+      [0, () => {}],
+      ['octocat/demo-app', () => {}],
+      [{ status: 'ready', data: repoData, error: '', loadingMore: false, loadMoreError: '' }, () => {}],
+      [{
+        status: 'done',
+        repo,
+        baseDir: '/Users/tester/project',
+        results: [{
+          name: 'demo-app',
+          path: 'demo-app',
+          targetDir: '/Users/tester/project/demo-app',
+          status: 'cloned',
+          error: '',
+        }],
+        error: '',
+      }, () => {}],
+    ],
+  })
+
+  // Check exact ordering inside accountTools: accountSelect -> viewModeSelect -> manageAccounts button
+  const accountSelectIdx = rendered.nodes.findIndex(node => String(node.props.className).includes('__accountSelect'))
+  const viewModeSelectIdx = rendered.nodes.findIndex(node => String(node.props.className).includes('__viewModeSelect'))
+  const manageBtnIdx = rendered.nodes.findIndex(node => node.tag === 'button' && node.props['aria-label'] === '管理账户')
+  assert.ok(accountSelectIdx >= 0 && viewModeSelectIdx > accountSelectIdx && manageBtnIdx > viewModeSelectIdx)
+
+  // View mode options include 查看任务 and 查看仓库
+  const viewModeNode = rendered.nodes[viewModeSelectIdx]
+  assert.equal(viewModeNode.props.value, 'repos')
+  assert.ok(rendered.text.includes('查看任务'))
+  assert.ok(rendered.text.includes('查看仓库'))
+  viewModeNode.props.onChange({ target: { value: 'tasks' } })
+  assert.deepEqual(viewModeChanges, ['tasks'])
+
+  // Repo list, detail pane, clone button, and external link
+  for (const expected of [
+    'demo-app', 'octocat/demo-app', '私有', 'TypeScript', 'main',
+    'Demo application repo', '克隆到本地', '在 GitHub 中打开',
+    '共 1 个仓库', 'https://github.com/octocat/demo-app.git',
+    '克隆仓库 · octocat/demo-app', '仓库已克隆到本地。',
+  ]) {
+    assert.ok(rendered.text.includes(expected), `missing rendered repo text: ${expected}`)
+  }
+
+  const cloneBtn = rendered.nodes.find(node => node.tag === 'button' && node.props['data-action'] === 'clone-repo')
+  assert.ok(cloneBtn)
+  const link = rendered.nodes.find(node => node.tag === 'a')
+  assert.equal(link?.props.href, 'https://github.com/octocat/demo-app')
+})
+
+test('RepoWorkbench clones selected repo, prompts to create workspace, and creates/opens workspace on confirm', async () => {
+  const rpcCalls = []
+  const createdWorkspaces = []
+  const openedWorkspaces = []
+  const repoA = {
+    id: '101',
+    organizationId: 'org-1',
+    name: 'backend',
+    path: 'backend',
+    pathWithNamespace: 'org-1/backend',
+    fullName: 'org-1/backend',
+    owner: 'org-1',
+    description: 'Backend service',
+    visibility: 'private',
+    archived: false,
+    isFork: false,
+    defaultBranch: 'main',
+    httpUrl: 'https://codeup.aliyun.com/org-1/backend.git',
+    sshUrl: 'git@codeup.aliyun.com:org-1/backend.git',
+    webUrl: 'https://codeup.aliyun.com/org-1/backend',
+    gmtCreate: '2026-01-01T00:00:00.000Z',
+    gmtModified: '2026-11-20T12:00:00.000Z',
+  }
+
+  let definition
+  const context = {
+    window: {
+      __ModuleLoader__: { load(value) { definition = value } },
+      innerHeight: 800,
+      addEventListener() {},
+      removeEventListener() {},
+    },
+    console, AbortController, Intl, Date, URL, setTimeout, clearTimeout,
+  }
+  vm.runInNewContext(source, context)
+
+  const stateSlots = []
+  const refSlots = []
+  const effectSlots = []
+  let stateIdx = 0
+  let refIdx = 0
+  let effectIdx = 0
+  let pendingEffects = []
+  let latestTree = null
+
+  let scheduled = false
+  function scheduleRerender() {
+    if (scheduled) return
+    scheduled = true
+    queueMicrotask(() => {
+      scheduled = false
+      rerender()
+    })
+  }
+
+  const React = {
+    createElement(type, props, ...children) { return { type, props: props || {}, children } },
+    useState(initial) {
+      const idx = stateIdx++
+      if (!(idx in stateSlots)) stateSlots[idx] = typeof initial === 'function' ? initial() : initial
+      const setState = (updater) => {
+        stateSlots[idx] = typeof updater === 'function' ? updater(stateSlots[idx]) : updater
+        scheduleRerender()
+      }
+      return [stateSlots[idx], setState]
+    },
+    useRef(initial) {
+      const idx = refIdx++
+      if (!(idx in refSlots)) refSlots[idx] = { current: initial }
+      return refSlots[idx]
+    },
+    useCallback(fn) { return fn },
+    useEffect(effect, deps) {
+      const idx = effectIdx++
+      const prev = effectSlots[idx]
+      const changed = !prev || !deps || deps.some((d, i) => !Object.is(d, prev.deps[i]))
+      if (changed) pendingEffects.push({ idx, effect, deps })
+    },
+    useSyncExternalStore(_sub, getSnapshot) { return getSnapshot() },
+    useId() { return 'test-id' },
+  }
+
+  const plugin = definition.factory((name) => {
+    if (name === 'react') return React
+    if (name === '@deepseek-ai/dsh-client-ui-primitives') return {}
+    throw new Error(`Unexpected require: ${name}`)
+  })
+
+  const registrations = []
+  const rpc = {
+    async call(_channel, endpoint, payload) {
+      rpcCalls.push({ endpoint, payload })
+      if (endpoint === 'listRepos') {
+        return {
+          ok: true,
+          value: {
+            user: { id: 'u1', username: 'tester' },
+            organizations: [{ id: 'org-1', name: '我的组织' }],
+            selectedOrganizationId: 'org-1',
+            items: [repoA],
+            totalCount: 1,
+            page: 1,
+            hasMore: false,
+            nextPage: null,
+            truncated: false,
+          },
+        }
+      }
+      if (endpoint === 'cloneRepo') {
+        return {
+          ok: true,
+          value: {
+            empty: false,
+            baseDir: '/Users/tester/project',
+            results: [{
+              name: 'backend',
+              path: 'backend',
+              targetDir: '/Users/tester/project/backend',
+              status: 'cloned',
+              error: '',
+            }],
+          },
+        }
+      }
+      throw new Error(`Unexpected RPC: ${endpoint}`)
+    },
+  }
+  const workspaces = {
+    async create(input) {
+      createdWorkspaces.push(input)
+      return { workspaceId: `ws-${createdWorkspaces.length}`, path: input.path }
+    },
+  }
+  const uiWorkspace = {
+    async openWorkspace(id) {
+      openedWorkspaces.push(id)
+    },
+  }
+
+  plugin.apply({
+    effect(setup) { return setup() },
+    locale: { register() { return () => {} }, bind() { return key => zhDict[key] ?? key } },
+    configForms: { get: () => ({ getSnapshot: () => accountSnapshot(), subscribe: () => () => {} }) },
+    remote: { credentials: {} },
+    connection: { rpc },
+    workspaces,
+    uiWorkspace,
+    layout: { panelInfo: { getSnapshot: () => ({ activePanelId: null }) }, selectPanel() {} },
+    slots: {
+      inject(_owner, setup) { return setup() },
+      register(options, component) { registrations.push({ options, component }); return () => {} },
+    },
+  })
+
+  const main = registrations.find(item => item.options.name === 'main')
+  // Render GitWorkbenchPage once with viewMode='repos' to extract RepoWorkbench
+  let pageSlotIdx = 0
+  const savedUseState = React.useState
+  React.useState = (initial) => {
+    const idx = pageSlotIdx++
+    if (idx === 8) return ['repos', () => {}]
+    return [typeof initial === 'function' ? initial() : initial, () => {}]
+  }
+  function findRepoWorkbench(node) {
+    if (!node || typeof node !== 'object') return null
+    if (Array.isArray(node)) {
+      for (const child of node) {
+        const found = findRepoWorkbench(child)
+        if (found) return found
+      }
+      return null
+    }
+    if (typeof node.type === 'function' && node.type.name === 'RepoWorkbench') return node
+    if (typeof node.type === 'function') return findRepoWorkbench(node.type({ ...node.props, children: node.children }))
+    return findRepoWorkbench(node.children)
+  }
+  const mainTree = React.createElement(main.component, { ...main.options.inject(), t: key => zhDict[key] ?? key })
+  const workbenchNode = findRepoWorkbench(mainTree)
+  assert.ok(workbenchNode)
+  React.useState = savedUseState
+
+  const RepoWorkbench = workbenchNode.type
+  const workbenchProps = workbenchNode.props
+
+  function collectTree(node, acc = { buttons: [], texts: [] }) {
+    if (node === null || node === undefined || node === false || node === true) return acc
+    if (Array.isArray(node)) { node.forEach(child => collectTree(child, acc)); return acc }
+    if (typeof node === 'string' || typeof node === 'number') { acc.texts.push(String(node)); return acc }
+    if (typeof node !== 'object') return acc
+    if (typeof node.type === 'function') {
+      collectTree(node.type({ ...node.props, children: node.children }), acc)
+      return acc
+    }
+    if (node.type === 'button') acc.buttons.push(node)
+    if (node.props?.footer) collectTree(node.props.footer, acc)
+    if (Array.isArray(node.children)) node.children.forEach(child => collectTree(child, acc))
+    return acc
+  }
+
+  function rerender() {
+    stateIdx = 0
+    refIdx = 0
+    effectIdx = 0
+    pendingEffects = []
+    latestTree = RepoWorkbench(workbenchProps)
+    const effectsToRun = pendingEffects
+    pendingEffects = []
+    for (const item of effectsToRun) {
+      effectSlots[item.idx]?.cleanup?.()
+      effectSlots[item.idx] = { deps: item.deps, cleanup: undefined }
+      const cleanup = item.effect()
+      effectSlots[item.idx].cleanup = typeof cleanup === 'function' ? cleanup : undefined
+    }
+  }
+
+  rerender()
+  await new Promise(resolve => setTimeout(resolve, 25))
+
+  assert.equal(rpcCalls.length, 1)
+  assert.equal(rpcCalls[0].endpoint, 'listRepos')
+
+  // Click "克隆到本地" button
+  let snapshotTree = collectTree(latestTree)
+  const cloneBtn = snapshotTree.buttons.find(btn => btn.props?.['data-action'] === 'clone-repo')
+  assert.ok(cloneBtn)
+  cloneBtn.props.onClick()
+  await new Promise(resolve => setTimeout(resolve, 25))
+
+  // Must call cloneRepo and NOT auto-create workspace yet; instead prompt user
+  assert.equal(rpcCalls.length, 2)
+  assert.equal(rpcCalls[1].endpoint, 'cloneRepo')
+  assert.deepEqual(JSON.parse(JSON.stringify(rpcCalls[1].payload)), {
+    accountId: 'acc-1',
+    organizationId: 'org-1',
+    repositoryId: '101',
+  })
+  assert.equal(createdWorkspaces.length, 0)
+  assert.equal(openedWorkspaces.length, 0)
+
+  snapshotTree = collectTree(latestTree)
+  assert.ok(snapshotTree.texts.join(' ').includes('是否创建该仓库的工作区？'))
+  const dismissBtn = snapshotTree.buttons.find(btn => btn.props?.['data-action'] === 'dismiss-workspace')
+  const confirmBtn = snapshotTree.buttons.find(btn => btn.props?.['data-action'] === 'confirm-workspace')
+  assert.ok(dismissBtn)
+  assert.ok(confirmBtn)
+
+  // Clicking "否" keeps the local clone only without creating a workspace
+  dismissBtn.props.onClick()
+  await new Promise(resolve => setTimeout(resolve, 25))
+  assert.equal(stateSlots[6].status, 'idle')
+  assert.equal(createdWorkspaces.length, 0)
+  assert.equal(openedWorkspaces.length, 0)
+
+  // Clone again and click "是" to create and open the workspace
+  snapshotTree = collectTree(latestTree)
+  snapshotTree.buttons.find(btn => btn.props?.['data-action'] === 'clone-repo').props.onClick()
+  await new Promise(resolve => setTimeout(resolve, 25))
+  snapshotTree = collectTree(latestTree)
+  snapshotTree.buttons.find(btn => btn.props?.['data-action'] === 'confirm-workspace').props.onClick()
+  await new Promise(resolve => setTimeout(resolve, 25))
+
+  assert.deepEqual(JSON.parse(JSON.stringify(createdWorkspaces)), [
+    { path: '/Users/tester/project/backend' },
+  ])
+  assert.deepEqual(openedWorkspaces, ['ws-1'])
+  assert.equal(stateSlots[6].status, 'idle')
 })

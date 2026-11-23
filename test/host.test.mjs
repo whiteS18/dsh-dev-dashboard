@@ -448,3 +448,101 @@ test('routes GitHub accounts to the GitHub API for load, detail, cloneRepos, and
   assert.equal(receivedClone.platform, 'github')
   assert.equal(receivedClone.username, 'octocat')
 })
+
+test('listRepos and cloneRepo forward bounded params and clone a single repository safely', async () => {
+  const ghAccount = { id: 'gh-repo-acc', platform: 'github', username: 'octocat' }
+  let receivedList
+  let receivedRepo
+  let receivedClone
+  const { call } = setup({
+    config: { accounts: [ACCOUNT, ghAccount] },
+    api: {
+      codeup: {
+        async listRepositories(input) {
+          receivedList = input
+          return {
+            selectedOrganizationId: 'org-1',
+            organizations: [{ id: 'org-1', name: 'Org 1' }],
+            items: [{ id: '101', name: 'backend', path: 'backend', fullName: 'org-1/backend' }],
+            totalCount: 1,
+            page: 1,
+            hasMore: false,
+            nextPage: null,
+          }
+        },
+        async repository(input) {
+          receivedRepo = input
+          return {
+            user: { username: 'codeup-user' },
+            repository: { id: '101', name: 'backend', path: 'backend', httpUrl: 'https://codeup.aliyun.com/org-1/backend.git' },
+          }
+        },
+      },
+      github: {
+        async listRepositories(input) {
+          receivedList = input
+          return {
+            selectedOrganizationId: 'all',
+            organizations: [{ id: 'octocat', name: 'octocat' }],
+            items: [{ id: 'octocat/demo', name: 'demo', path: 'demo', fullName: 'octocat/demo' }],
+            totalCount: 1,
+            page: 1,
+            hasMore: false,
+            nextPage: null,
+          }
+        },
+        async repository(input) {
+          receivedRepo = input
+          return {
+            user: { username: 'octocat' },
+            repository: { id: 'octocat/demo', name: 'demo', path: 'demo', httpUrl: 'https://github.com/octocat/demo.git' },
+          }
+        },
+      },
+    },
+    cloneService: {
+      baseDir: () => '/Users/tester/project',
+      async cloneRepositories(input) {
+        receivedClone = input
+        return {
+          baseDir: '/Users/tester/project',
+          empty: false,
+          results: input.repositories.map(repo => ({
+            name: repo.name,
+            path: repo.path,
+            targetDir: `/Users/tester/project/${repo.path}`,
+            cloneUrl: repo.httpUrl,
+            status: 'cloned',
+            error: '',
+          })),
+        }
+      },
+    },
+  })
+
+  const codeupList = await call('listRepos', { accountId: ACCOUNT.id, organizationId: 'org-1', search: 'back', page: 1, pageSize: 20 })
+  assert.equal(codeupList.ok, true)
+  assert.equal(receivedList.token, TOKEN)
+  assert.equal(receivedList.search, 'back')
+  assert.equal(codeupList.value.items[0].id, '101')
+
+  // Codeup cloneRepo requires organizationId
+  const missingOrg = await call('cloneRepo', { accountId: ACCOUNT.id, repositoryId: '101' })
+  assert.equal(missingOrg.ok, false)
+  assert.equal(missingOrg.error.code, 'bad-request')
+
+  const codeupClone = await call('cloneRepo', { accountId: ACCOUNT.id, organizationId: 'org-1', repositoryId: '101' })
+  assert.equal(codeupClone.ok, true)
+  assert.equal(receivedRepo.repositoryId, '101')
+  assert.equal(receivedClone.platform, 'codeup')
+  assert.equal(receivedClone.username, 'codeup-user')
+  assert.equal(codeupClone.value.results[0].targetDir, '/Users/tester/project/backend')
+
+  // GitHub cloneRepo does not require organizationId
+  const ghClone = await call('cloneRepo', { accountId: ghAccount.id, repositoryId: 'octocat/demo' })
+  assert.equal(ghClone.ok, true)
+  assert.equal(receivedRepo.repositoryId, 'octocat/demo')
+  assert.equal(receivedClone.platform, 'github')
+  assert.equal(ghClone.value.results[0].targetDir, '/Users/tester/project/demo')
+  assert.equal(JSON.stringify(ghClone).includes(TOKEN), false)
+})

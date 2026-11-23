@@ -128,14 +128,14 @@ function positiveInteger(value) {
   return Number.isSafeInteger(number) && number >= 0 ? number : null
 }
 
-function hasNextPage(response, rows, page) {
+function hasNextPage(response, rows, page, perPage = PAGE_SIZE) {
   const totalPages = positiveInteger(header(response, 'x-total-pages'))
   if (totalPages !== null) return page < totalPages
   const total = positiveInteger(header(response, 'x-total'))
-  if (total !== null) return page * PAGE_SIZE < total
+  if (total !== null) return page * perPage < total
   const nextPage = positiveInteger(header(response, 'x-next-page'))
   if (nextPage !== null) return nextPage > page
-  return rows.length === PAGE_SIZE
+  return rows.length === perPage
 }
 
 function normalizeUser(value) {
@@ -457,26 +457,58 @@ function collectWorkitemRepoCandidates(rawWorkitem, extRecords) {
   return candidates
 }
 
-function normalizeRepository(rawRepo, fallbackUrl = '') {
+function normalizeVisibility(rawRepo) {
+  const vis = asString(rawRepo?.visibility).trim().toLowerCase()
+  if (vis === 'private' || vis === 'internal' || vis === 'public') return vis
+  const rawLevel = rawRepo?.visibilityLevel
+  if (rawLevel !== undefined && rawLevel !== null && rawLevel !== '') {
+    const level = Number(rawLevel)
+    if (level === 0) return 'private'
+    if (level === 10) return 'internal'
+    if (level === 20) return 'public'
+  }
+  return ''
+}
+
+function normalizeRepository(rawRepo, fallbackUrl = '', organizationId = '') {
   if (!rawRepo || typeof rawRepo !== 'object') {
     const httpUrl = normalizeCodeupHttpUrl(fallbackUrl)
     const sshUrl = isSshGitUrl(fallbackUrl) ? asString(fallbackUrl).trim() : ''
     const cloneUrl = httpUrl || sshUrl
     const path = dirNameFromUrl(cloneUrl || fallbackUrl)
     if (!cloneUrl || !path) return null
+    const pathWithNamespace = extractCodeupRepoPathFromUrl(fallbackUrl)
+    const owner = pathWithNamespace.includes('/') ? pathWithNamespace.split('/')[0] : ''
     return {
       id: '',
+      organizationId: asString(organizationId).trim(),
       name: path,
       path,
-      pathWithNamespace: extractCodeupRepoPathFromUrl(fallbackUrl),
+      pathWithNamespace,
+      fullName: pathWithNamespace || path,
+      owner,
+      description: '',
+      visibility: '',
+      archived: false,
+      isFork: false,
+      defaultBranch: '',
+      language: '',
+      starCount: null,
+      forkCount: null,
+      openIssuesCount: null,
       httpUrl,
       sshUrl,
       webUrl: /^https?:\/\//i.test(fallbackUrl) ? asString(fallbackUrl).trim() : '',
+      gmtCreate: null,
+      gmtModified: null,
     }
   }
 
   const pathWithNamespace = asString(rawRepo.pathWithNamespace).trim()
-  const webUrl = asString(rawRepo.webUrl).trim()
+  let webUrl = asString(rawRepo.webUrl).trim()
+  if (!webUrl && pathWithNamespace) {
+    webUrl = `https://codeup.aliyun.com/${pathWithNamespace.replace(/^\/+|\/+$/g, '')}`
+  }
   let httpUrl = asString(rawRepo.httpUrlToRepo).trim() || asString(rawRepo.httpUrlToRepository).trim()
   if (!httpUrl && webUrl) {
     const normalizedWeb = normalizeCodeupHttpUrl(webUrl)
@@ -499,14 +531,34 @@ function normalizeRepository(rawRepo, fallbackUrl = '') {
     || sanitizeRepoDirName(rawRepo.name)
 
   if ((!httpUrl && !sshUrl) || !path) return null
+  const name = asString(rawRepo.name).trim() || path
+  const owner = asString(rawRepo.namespace?.path || rawRepo.namespace?.name).trim()
+    || (pathWithNamespace.includes('/') ? pathWithNamespace.split('/')[0] : '')
+  const starCount = Number.isInteger(rawRepo.starCount) ? rawRepo.starCount : null
+  const forkCount = Number.isInteger(rawRepo.forksCount) ? rawRepo.forksCount : null
+  const openIssuesCount = Number.isInteger(rawRepo.openIssuesCount) ? rawRepo.openIssuesCount : null
   return {
-    id: asString(rawRepo.id).trim(),
-    name: asString(rawRepo.name).trim() || path,
+    id: asString(rawRepo.id).trim() || pathWithNamespace || path,
+    organizationId: asString(organizationId).trim(),
+    name,
     path,
     pathWithNamespace,
+    fullName: pathWithNamespace || name,
+    owner,
+    description: asString(rawRepo.description).trim(),
+    visibility: normalizeVisibility(rawRepo),
+    archived: Boolean(rawRepo.archived),
+    isFork: Boolean(rawRepo.forkedFromProject),
+    defaultBranch: asString(rawRepo.defaultBranch).trim(),
+    language: '',
+    starCount,
+    forkCount,
+    openIssuesCount,
     httpUrl,
     sshUrl,
     webUrl,
+    gmtCreate: time(rawRepo.createdAt ?? rawRepo.gmtCreate),
+    gmtModified: time(rawRepo.lastActivityAt ?? rawRepo.updatedAt ?? rawRepo.gmtModified ?? rawRepo.createdAt),
   }
 }
 
@@ -1074,5 +1126,110 @@ export function createCodeupApi(fetchImpl = globalThis.fetch) {
     return { user, repositories: resolved }
   }
 
-  return { load, count, detail, repositories }
+  async function listRepositories({
+    token,
+    organizationId = '',
+    search = '',
+    page = 1,
+    pageSize = DEFAULT_WORKITEM_PAGE_SIZE,
+    signal,
+  } = {}) {
+    const accessToken = cleanToken(token)
+    const requestedOrganization = asString(organizationId).trim()
+    const cleanSearch = asString(search).trim()
+    const effectivePage = Number(page)
+    if (!Number.isInteger(effectivePage) || effectivePage < 1) {
+      throw new CodeupError('bad-request', '页码无效。')
+    }
+    const effectivePageSize = Number(pageSize)
+    if (!Number.isInteger(effectivePageSize) || effectivePageSize < 1 || effectivePageSize > 100) {
+      throw new CodeupError('bad-request', '分页大小无效。')
+    }
+
+    let user
+    let organizations = []
+    let selectedOrganizationId = requestedOrganization
+    if (effectivePage === 1 || !selectedOrganizationId) {
+      const [userResult, organizationResult] = await Promise.all([
+        request(accessToken, '/oapi/v1/platform/user', { signal }),
+        request(accessToken, '/oapi/v1/platform/organizations', { signal }),
+      ])
+      user = normalizeUser(objectBody(userResult))
+      organizations = arrayBody(organizationResult).map(normalizeOrganization)
+      selectedOrganizationId = requestedOrganization
+        || organizations.find(item => item.id === user.lastOrganization)?.id
+        || organizations[0]?.id
+        || ''
+    } else {
+      const userResult = await request(accessToken, '/oapi/v1/platform/user', { signal })
+      user = normalizeUser(objectBody(userResult))
+    }
+
+    if (!selectedOrganizationId) {
+      return {
+        user,
+        organizations,
+        selectedOrganizationId: '',
+        items: [],
+        totalCount: 0,
+        page: effectivePage,
+        hasMore: false,
+        nextPage: null,
+        truncated: false,
+      }
+    }
+
+    const params = new URLSearchParams({
+      page: String(effectivePage),
+      perPage: String(effectivePageSize),
+      orderBy: 'last_activity_at',
+      sort: 'desc',
+    })
+    if (cleanSearch) params.set('search', cleanSearch)
+
+    const result = await request(
+      accessToken,
+      `/oapi/v1/codeup/organizations/${encodeURIComponent(selectedOrganizationId)}/repositories?${params.toString()}`,
+      { signal },
+    )
+    const rawRows = extractRecordArray(result.data)
+    const items = rawRows
+      .map(row => normalizeRepository(row, '', selectedOrganizationId))
+      .filter(Boolean)
+    const hasMore = hasNextPage(result.response, rawRows, effectivePage, effectivePageSize)
+    const headerTotal = positiveInteger(header(result.response, 'x-total'))
+    const totalCount = headerTotal !== null
+      ? headerTotal
+      : (!hasMore && effectivePage === 1 ? items.length : null)
+
+    return {
+      user,
+      organizations,
+      selectedOrganizationId,
+      items,
+      totalCount,
+      page: effectivePage,
+      hasMore,
+      nextPage: hasMore ? effectivePage + 1 : null,
+      truncated: false,
+    }
+  }
+
+  async function repository({ token, organizationId, repositoryId, signal } = {}) {
+    const accessToken = cleanToken(token)
+    const rawOrg = required(organizationId, 'organizationId')
+    const org = encodeURIComponent(rawOrg)
+    const repoKey = required(repositoryId, 'repositoryId')
+    const [userResult, rawRepo] = await Promise.all([
+      request(accessToken, '/oapi/v1/platform/user', { signal }),
+      fetchRepositoryByIdOrPath(accessToken, org, repoKey, signal),
+    ])
+    const user = normalizeUser(objectBody(userResult))
+    return {
+      user,
+      repository: normalizeRepository(rawRepo, '', rawOrg),
+    }
+  }
+
+  return { load, count, detail, repositories, listRepositories, repository }
 }

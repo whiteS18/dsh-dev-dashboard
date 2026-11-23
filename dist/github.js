@@ -427,6 +427,47 @@ function normalizeRepoProject(raw, includeOwnerInName) {
   }
 }
 
+function normalizeRepository(rawRepo, fallbackFullName = '') {
+  if (!rawRepo || typeof rawRepo !== 'object') return null
+  const fullName = asString(rawRepo.full_name).trim() || asString(fallbackFullName).trim()
+  const parsed = parseRepoFullName(fullName)
+  if (!parsed) return null
+  const owner = asString(rawRepo.owner?.login).trim() || parsed.owner
+  const name = asString(rawRepo.name).trim() || parsed.repo
+  const dirName = sanitizeRepoDirName(name) || sanitizeRepoDirName(parsed.repo)
+  const httpUrl = asString(rawRepo.clone_url).trim()
+  const sshUrl = asString(rawRepo.ssh_url).trim()
+  if (!dirName || (!httpUrl && !sshUrl)) return null
+  const rawVisibility = asString(rawRepo.visibility).trim().toLowerCase()
+  const visibility = (rawVisibility === 'private' || rawVisibility === 'internal' || rawVisibility === 'public')
+    ? rawVisibility
+    : (rawRepo.private === true ? 'private' : rawRepo.private === false ? 'public' : '')
+  return {
+    id: parsed.fullName,
+    repoId: asString(rawRepo.id),
+    organizationId: owner,
+    name,
+    path: dirName,
+    pathWithNamespace: parsed.fullName,
+    fullName: parsed.fullName,
+    owner,
+    description: asString(rawRepo.description).trim(),
+    visibility,
+    archived: Boolean(rawRepo.archived),
+    isFork: Boolean(rawRepo.fork),
+    defaultBranch: asString(rawRepo.default_branch).trim(),
+    language: asString(rawRepo.language).trim(),
+    starCount: Number.isInteger(rawRepo.stargazers_count) ? rawRepo.stargazers_count : null,
+    forkCount: Number.isInteger(rawRepo.forks_count) ? rawRepo.forks_count : null,
+    openIssuesCount: Number.isInteger(rawRepo.open_issues_count) ? rawRepo.open_issues_count : null,
+    httpUrl,
+    sshUrl,
+    webUrl: safeGitHubUrl(rawRepo.html_url),
+    gmtCreate: time(rawRepo.created_at),
+    gmtModified: time(rawRepo.pushed_at ?? rawRepo.updated_at ?? rawRepo.created_at),
+  }
+}
+
 function httpError(statusCode, response) {
   if (statusCode === 401) {
     return new GitHubError('permission-denied', 'GitHub 认证失败，请检查访问令牌是否有效。', { status: statusCode })
@@ -1060,5 +1101,92 @@ export function createGitHubApi({ fetch = globalThis.fetch, baseUrl = BASE_URL }
     }
   }
 
-  return { load, count, detail, repositories }
+  async function listRepositories({
+    token,
+    organizationId = '',
+    search = '',
+    page = 1,
+    pageSize = DEFAULT_ISSUE_PAGE_SIZE,
+    signal,
+  } = {}) {
+    const accessToken = cleanToken(token)
+    const requestedOrganization = asString(organizationId).trim()
+    const cleanSearch = asString(search).trim().toLowerCase()
+    const effectivePage = Number(page)
+    if (!Number.isInteger(effectivePage) || effectivePage < 1) {
+      throw new GitHubError('bad-request', '页码无效。')
+    }
+    const effectivePageSize = Number(pageSize)
+    if (!Number.isInteger(effectivePageSize) || effectivePageSize < 1 || effectivePageSize > 100) {
+      throw new GitHubError('bad-request', '分页大小无效。')
+    }
+
+    const [userResult, reposResult] = await Promise.all([
+      request(accessToken, '/user', { signal }),
+      fetchAccessibleRepos(accessToken, signal),
+    ])
+    const user = normalizeUser(objectBody(userResult))
+    const rawRepos = reposResult.repos
+    const organizations = deriveOrganizations(rawRepos, user)
+
+    let selectedOrganizationId = requestedOrganization || 'all'
+    if (selectedOrganizationId !== 'all' && organizations.length > 0) {
+      const matchedOrg = organizations.find(item => item.id.toLowerCase() === selectedOrganizationId.toLowerCase())
+      if (matchedOrg) selectedOrganizationId = matchedOrg.id
+    }
+
+    const normalized = rawRepos
+      .map(repo => normalizeRepository(repo))
+      .filter(Boolean)
+      .filter((repo) => {
+        if (selectedOrganizationId !== 'all' && repo.owner.toLowerCase() !== selectedOrganizationId.toLowerCase()) {
+          return false
+        }
+        if (cleanSearch) {
+          const haystack = `${repo.fullName}\n${repo.name}\n${repo.description}\n${repo.language}`.toLowerCase()
+          if (!haystack.includes(cleanSearch)) return false
+        }
+        return true
+      })
+
+    const totalCount = normalized.length
+    const start = (effectivePage - 1) * effectivePageSize
+    const items = normalized.slice(start, start + effectivePageSize)
+    const hasMore = start + items.length < totalCount
+
+    return {
+      user,
+      organizations,
+      selectedOrganizationId,
+      items,
+      totalCount,
+      page: effectivePage,
+      hasMore,
+      nextPage: hasMore ? effectivePage + 1 : null,
+      truncated: reposResult.limited,
+    }
+  }
+
+  async function repository({ token, repositoryId, signal } = {}) {
+    const accessToken = cleanToken(token)
+    const parsed = parseRepoFullName(required(repositoryId, 'repositoryId'))
+    if (!parsed) {
+      throw new GitHubError('bad-request', 'GitHub 仓库名称格式无效。')
+    }
+    const [userResult, repoResult] = await Promise.all([
+      request(accessToken, '/user', { signal }),
+      request(
+        accessToken,
+        `/repos/${encodeURIComponent(parsed.owner)}/${encodeURIComponent(parsed.repo)}`,
+        { signal },
+      ),
+    ])
+    const user = normalizeUser(objectBody(userResult))
+    return {
+      user,
+      repository: normalizeRepository(objectBody(repoResult), parsed.fullName),
+    }
+  }
+
+  return { load, count, detail, repositories, listRepositories, repository }
 }

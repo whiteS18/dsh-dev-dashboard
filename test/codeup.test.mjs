@@ -591,3 +591,83 @@ test('repositories falls back to per-category extRelationRecords on 400 and retu
   assert.ok(seenUrls.some(url => url.includes('category=codeupBranch')))
   assert.ok(seenUrls.some(url => url.includes('category=codeupMergeRequest')))
 })
+
+test('listRepositories lists paginated organization repositories with search and repository() resolves a single repo', async () => {
+  const seenUrls = []
+  const { fetchImpl } = mockFetch((call) => {
+    seenUrls.push(call.url)
+    const parsed = new URL(call.url)
+    if (parsed.pathname === '/oapi/v1/platform/user') {
+      return response({ id: USER_ID, name: 'Test user', username: 'git-tester', lastOrganization: ORG_ID })
+    }
+    if (parsed.pathname === '/oapi/v1/platform/organizations') {
+      return response([{ id: ORG_ID, name: 'Org one', description: 'Unit test' }])
+    }
+    if (parsed.pathname === `/oapi/v1/codeup/organizations/${ORG_ID}/repositories`) {
+      assert.equal(parsed.searchParams.get('page'), '1')
+      assert.equal(parsed.searchParams.get('perPage'), '20')
+      assert.equal(parsed.searchParams.get('search'), 'backend')
+      assert.equal(parsed.searchParams.get('orderBy'), 'last_activity_at')
+      assert.equal(parsed.searchParams.get('sort'), 'desc')
+      return response(
+        [{
+          id: 101,
+          name: 'backend',
+          path: 'backend',
+          pathWithNamespace: 'org-1/backend',
+          description: 'Core backend service',
+          visibilityLevel: 0,
+          archived: false,
+          defaultBranch: 'main',
+          httpUrlToRepo: 'https://codeup.aliyun.com/org-1/backend.git',
+          sshUrlToRepo: 'git@codeup.aliyun.com:org-1/backend.git',
+          webUrl: 'https://codeup.aliyun.com/org-1/backend',
+          createdAt: '2026-01-01T00:00:00Z',
+          lastActivityAt: '2026-11-20T08:00:00Z',
+        }],
+        { headers: { 'x-total': '25', 'x-total-pages': '2' } },
+      )
+    }
+    if (parsed.pathname === `/oapi/v1/codeup/organizations/${ORG_ID}/repositories/101`) {
+      return response({
+        id: 101,
+        name: 'backend',
+        path: 'backend',
+        pathWithNamespace: 'org-1/backend',
+        httpUrlToRepo: 'https://codeup.aliyun.com/org-1/backend.git',
+        sshUrlToRepo: 'git@codeup.aliyun.com:org-1/backend.git',
+        webUrl: 'https://codeup.aliyun.com/org-1/backend',
+      })
+    }
+    throw new Error(`Unexpected request: ${call.url}`)
+  })
+
+  const api = createCodeupApi(fetchImpl)
+  const listed = await api.listRepositories({
+    token: TOKEN,
+    search: 'backend',
+    page: 1,
+    pageSize: 20,
+  })
+  assert.equal(listed.selectedOrganizationId, ORG_ID)
+  assert.equal(listed.organizations.length, 1)
+  assert.equal(listed.totalCount, 25)
+  assert.equal(listed.hasMore, true)
+  assert.equal(listed.nextPage, 2)
+  assert.equal(listed.items.length, 1)
+  assert.equal(listed.items[0].id, '101')
+  assert.equal(listed.items[0].fullName, 'org-1/backend')
+  assert.equal(listed.items[0].visibility, 'private')
+  assert.equal(listed.items[0].defaultBranch, 'main')
+  assert.equal(listed.items[0].description, 'Core backend service')
+
+  const single = await api.repository({
+    token: TOKEN,
+    organizationId: ORG_ID,
+    repositoryId: '101',
+  })
+  assert.equal(single.user.username, 'git-tester')
+  assert.equal(single.repository.path, 'backend')
+  assert.equal(single.repository.httpUrl, 'https://codeup.aliyun.com/org-1/backend.git')
+  assert.equal(JSON.stringify(listed).includes(TOKEN), false)
+})

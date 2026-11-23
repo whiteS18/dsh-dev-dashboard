@@ -329,6 +329,49 @@ export function registerIssueRpc(ctx, config, apis = null, cloneService = create
           signal,
         }))
       }
+      if (endpoint === 'listRepos') {
+        if (typeof api.listRepositories !== 'function') {
+          throw rpcError('bad-request', '当前平台暂不支持获取仓库列表。')
+        }
+        return ok(await api.listRepositories({
+          token,
+          organizationId: optionalString(payload.organizationId, 'organizationId'),
+          search: optionalString(payload.search, 'search', 200),
+          page: optionalInteger(payload.page, 'page', 1, 1, 10000),
+          pageSize: optionalInteger(payload.pageSize, 'pageSize', 20, 1, 100),
+          signal,
+        }))
+      }
+      if (endpoint === 'cloneRepo') {
+        if (typeof api.repository !== 'function') {
+          throw rpcError('bad-request', '当前平台暂不支持克隆仓库。')
+        }
+        const organizationId = account.platform === 'codeup'
+          ? requiredString(payload.organizationId, 'organizationId')
+          : optionalString(payload.organizationId, 'organizationId')
+        const repositoryId = requiredString(payload.repositoryId, 'repositoryId', 300)
+        const repoData = await api.repository({
+          token,
+          organizationId,
+          repositoryId,
+          signal,
+        })
+        const repository = repoData?.repository
+        if (!repository) {
+          return ok({
+            empty: true,
+            baseDir: cloneService.baseDir(),
+            results: [],
+          })
+        }
+        return ok(await cloneService.cloneRepositories({
+          repositories: [repository],
+          username: repoData?.user?.username || account.username,
+          token,
+          platform: account.platform,
+          signal,
+        }))
+      }
       throw rpcError('bad-request', '不支持的工作台请求。')
     } catch (error) {
       const result = failure(error)

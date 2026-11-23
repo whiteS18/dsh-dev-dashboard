@@ -144,6 +144,54 @@ window.__ModuleLoader__.load({
       noMoreGithubIssues: '已加载全部 Issue',
       loadMoreError: '加载更多工作项失败。',
       loadMoreGithubError: '加载更多 Issue 失败。',
+      viewModeSelect: '切换视图',
+      viewTasks: '查看任务',
+      viewRepos: '查看仓库',
+      repos: 'Codeup 仓库',
+      githubRepos: 'GitHub 仓库',
+      reposLoading: '正在读取 Codeup 仓库…',
+      githubReposLoading: '正在读取 GitHub 仓库…',
+      repoCount: '个仓库',
+      noRepos: '没有匹配的仓库',
+      noReposDescription: '可以尝试切换组织或清空搜索条件后刷新。',
+      noGithubReposDescription: '可以尝试切换所有者或清空搜索条件后刷新。',
+      selectRepoPrompt: '点击左侧仓库查看详细信息',
+      repoSearchPlaceholder: '搜索仓库…',
+      repoUnavailable: '当前连接不可用，无法读取仓库列表。',
+      unsupportedRepos: '该平台尚未接入仓库获取',
+      unsupportedReposDescription: '目前支持 Codeup（云效）和 GitHub 的仓库获取与克隆。',
+      loadingMoreRepos: '正在加载更多仓库…',
+      noMoreRepos: '已加载全部仓库',
+      loadMoreReposError: '加载更多仓库失败。',
+      repoVisibility: '可见性',
+      visibilityPrivate: '私有',
+      visibilityInternal: '内部',
+      visibilityPublic: '公开',
+      repoArchived: '已归档',
+      repoFork: 'Fork',
+      repoDefaultBranch: '默认分支',
+      repoLanguage: '主要语言',
+      repoNamespace: '命名空间',
+      repoCloneUrls: '克隆地址',
+      repoCloneHttps: 'HTTPS',
+      repoCloneSsh: 'SSH',
+      repoDescription: '仓库简介',
+      repoNoDescription: '暂无简介。',
+      repoStars: '星标',
+      repoForks: 'Fork 数',
+      repoOpenIssues: '打开的 Issue',
+      cloneToLocal: '克隆到本地',
+      cloningToLocal: '克隆中…',
+      repoCloneModalTitle: '克隆仓库',
+      repoCloneLoading: '正在将该仓库克隆到 ~/project…',
+      repoCloneNotFound: '未找到该仓库的克隆地址。',
+      repoCloneSuccess: '仓库已克隆到本地。',
+      repoCloneExists: '本地已存在该仓库。',
+      repoCloneFailed: '仓库克隆失败，请检查权限或本地目录后重试。',
+      repoCloneError: '克隆仓库失败。',
+      repoCreateWorkspacePrompt: '是否创建该仓库的工作区？',
+      repoCreateWorkspaceConfirm: '是',
+      repoCreateWorkspaceCancel: '否',
     }
 
     const en = {
@@ -269,6 +317,54 @@ window.__ModuleLoader__.load({
       noMoreGithubIssues: 'All issues loaded',
       loadMoreError: 'Could not load more work items.',
       loadMoreGithubError: 'Could not load more issues.',
+      viewModeSelect: 'Switch view',
+      viewTasks: 'View tasks',
+      viewRepos: 'View repositories',
+      repos: 'Codeup repositories',
+      githubRepos: 'GitHub repositories',
+      reposLoading: 'Loading Codeup repositories…',
+      githubReposLoading: 'Loading GitHub repositories…',
+      repoCount: 'repositories',
+      noRepos: 'No matching repositories',
+      noReposDescription: 'Try switching organization or clearing the search filter, then refresh.',
+      noGithubReposDescription: 'Try switching owner or clearing the search filter, then refresh.',
+      selectRepoPrompt: 'Select a repository on the left to view its details',
+      repoSearchPlaceholder: 'Search repositories…',
+      repoUnavailable: 'The current connection cannot load repositories.',
+      unsupportedRepos: 'Repository loading is not connected for this platform',
+      unsupportedReposDescription: 'Codeup (Yunxiao) and GitHub repositories are currently supported.',
+      loadingMoreRepos: 'Loading more repositories…',
+      noMoreRepos: 'All repositories loaded',
+      loadMoreReposError: 'Could not load more repositories.',
+      repoVisibility: 'Visibility',
+      visibilityPrivate: 'Private',
+      visibilityInternal: 'Internal',
+      visibilityPublic: 'Public',
+      repoArchived: 'Archived',
+      repoFork: 'Fork',
+      repoDefaultBranch: 'Default branch',
+      repoLanguage: 'Language',
+      repoNamespace: 'Namespace',
+      repoCloneUrls: 'Clone URLs',
+      repoCloneHttps: 'HTTPS',
+      repoCloneSsh: 'SSH',
+      repoDescription: 'Description',
+      repoNoDescription: 'No description.',
+      repoStars: 'Stars',
+      repoForks: 'Forks',
+      repoOpenIssues: 'Open issues',
+      cloneToLocal: 'Clone to local',
+      cloningToLocal: 'Cloning…',
+      repoCloneModalTitle: 'Clone repository',
+      repoCloneLoading: 'Cloning repository to ~/project…',
+      repoCloneNotFound: 'No clone URL was found for this repository.',
+      repoCloneSuccess: 'Repository cloned locally.',
+      repoCloneExists: 'Repository already exists locally.',
+      repoCloneFailed: 'Failed to clone repository. Check permissions or local directory and retry.',
+      repoCloneError: 'Could not clone repository.',
+      repoCreateWorkspacePrompt: 'Create a workspace for this repository?',
+      repoCreateWorkspaceConfirm: 'Yes',
+      repoCreateWorkspaceCancel: 'No',
     }
 
     const PLATFORMS = [
@@ -361,6 +457,16 @@ window.__ModuleLoader__.load({
         stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round',
         strokeLinejoin: 'round', 'aria-hidden': true,
       }, h('path', { d: 'M20 6v5h-5M4 18v-5h5M18.5 9A7 7 0 0 0 6 6.5L4 11M5.5 15A7 7 0 0 0 18 17.5l2-4.5' }))
+    }
+
+    function DownloadIcon() {
+      return h('svg', {
+        width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none',
+        stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round',
+        strokeLinejoin: 'round', 'aria-hidden': true,
+      },
+      h('path', { d: 'M12 4v11m0 0-4-4m4 4 4-4' }),
+      h('path', { d: 'M4 17v1.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V17' }))
     }
 
     function optionId(value) {
@@ -806,6 +912,41 @@ window.__ModuleLoader__.load({
       } catch (_error) {
         return ''
       }
+    }
+
+    function codeupRepoWebUrl(rawUrl) {
+      const href = safeHref(rawUrl)
+      if (!href) return ''
+      try {
+        const parsed = new URL(href)
+        const host = parsed.hostname.toLowerCase()
+        return parsed.protocol === 'https:' && (host === 'codeup.aliyun.com' || host.endsWith('.codeup.aliyun.com'))
+          ? parsed.href
+          : ''
+      } catch (_error) {
+        return ''
+      }
+    }
+
+    function repoExternalLink(t, platform, repo) {
+      if (!repo) return null
+      if (platform === 'github') {
+        const href = githubWebUrl(repo.webUrl)
+        return href ? { href, label: t('openInGitHub') } : null
+      }
+      if (platform === 'codeup') {
+        const href = codeupRepoWebUrl(repo.webUrl)
+        return href ? { href, label: t('openInCodeup') } : null
+      }
+      return null
+    }
+
+    function repoVisibilityBadge(t, visibility) {
+      const normalized = String(visibility || '').trim().toLowerCase()
+      if (normalized === 'private') return { label: t('visibilityPrivate'), className: '' }
+      if (normalized === 'internal') return { label: t('visibilityInternal'), className: `${CN}__issueBadgeActive` }
+      if (normalized === 'public') return { label: t('visibilityPublic'), className: `${CN}__issueBadgeDone` }
+      return null
     }
 
     function issueExternalLink(t, platform, issue, detail) {
@@ -1604,6 +1745,681 @@ window.__ModuleLoader__.load({
       )
     }
 
+    function mergeRepoItems(existingItems, incomingItems) {
+      const byId = new Map()
+      for (const item of existingItems) {
+        if (item?.id) byId.set(item.id, item)
+      }
+      for (const item of incomingItems) {
+        if (item?.id) byId.set(item.id, item)
+      }
+      return [...byId.values()]
+    }
+
+    function RepoListItem({ t, repo, selected, onSelect }) {
+      const visBadge = repoVisibilityBadge(t, repo.visibility)
+      const displayTitle = repo.name || repo.fullName || repo.path || repo.id
+      const subtitle = repo.fullName || repo.pathWithNamespace || repo.owner || '—'
+
+      return h('div', {
+        role: 'button',
+        tabIndex: 0,
+        className: `${CN}__issueItem ${selected ? 'is-selected' : ''}`.trim(),
+        'aria-current': selected ? 'true' : undefined,
+        onClick: onSelect,
+        onKeyDown: (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            onSelect()
+          }
+        },
+      },
+      h('div', { className: `${CN}__issueTopRow` },
+        h('div', { className: `${CN}__issueTitle`, title: subtitle }, displayTitle),
+      ),
+      h('div', { className: `${CN}__issueBottomRow` },
+        h('div', { className: `${CN}__issueInfoCol` },
+          h('div', { className: `${CN}__issueBadges` },
+            visBadge && h('span', { className: `${CN}__issueBadge ${visBadge.className}`.trim() }, visBadge.label),
+            repo.language && h('span', { className: `${CN}__issueBadge ${CN}__issueBadgeRelation` }, repo.language),
+            repo.archived && h('span', { className: `${CN}__issueBadge ${CN}__issueBadgeVerify` }, t('repoArchived')),
+            repo.isFork && h('span', { className: `${CN}__issueBadge` }, t('repoFork')),
+          ),
+          h('div', { className: `${CN}__issueMeta` },
+            h('span', null, subtitle),
+            h('span', null, formatDate(repo.gmtModified)),
+          ),
+        ),
+      ))
+    }
+
+    function RepoDetailPane({ t, platform, repo, cloning, onClone }) {
+      if (!repo) {
+        return h('div', { className: `${CN}__detailEmpty` }, t('selectRepoPrompt'))
+      }
+
+      const visBadge = repoVisibilityBadge(t, repo.visibility)
+      const externalLink = repoExternalLink(t, platform, repo)
+      const hasCloneUrl = Boolean(repo.httpUrl || repo.sshUrl)
+
+      return h('div', { className: `${CN}__detailScroll` },
+        h('div', { className: `${CN}__detailHeader` },
+          h('div', { className: `${CN}__detailHeaderMeta` },
+            visBadge && h('span', { className: `${CN}__issueBadge ${visBadge.className}`.trim() }, visBadge.label),
+            repo.language && h('span', { className: `${CN}__issueBadge ${CN}__issueBadgeRelation` }, repo.language),
+            repo.archived && h('span', { className: `${CN}__issueBadge ${CN}__issueBadgeVerify` }, t('repoArchived')),
+            repo.isFork && h('span', { className: `${CN}__issueBadge` }, t('repoFork')),
+          ),
+          h('div', { className: `${CN}__detailHeaderActions` },
+            externalLink && h('a', {
+              className: `${CN}__openLink`,
+              href: externalLink.href,
+              target: '_blank',
+              rel: 'noopener noreferrer',
+            }, externalLink.label, h(ExternalIcon)),
+            h('button', {
+              type: 'button',
+              className: `${CN}__button ${CN}__buttonPrimary`,
+              'data-action': 'clone-repo',
+              disabled: Boolean(cloning) || !hasCloneUrl,
+              onClick: () => onClone?.(repo),
+            }, h(DownloadIcon), cloning ? t('cloningToLocal') : t('cloneToLocal')),
+          ),
+        ),
+        h('h3', { className: `${CN}__detailTitle` }, repo.fullName || repo.pathWithNamespace || repo.name || repo.id),
+        h('div', { className: `${CN}__detailBody` },
+          h('dl', { className: `${CN}__detailGrid` },
+            h(DetailRow, { label: platform === 'github' ? t('owner') : t('repoNamespace'), value: repo.owner || '—' }),
+            visBadge && h(DetailRow, { label: t('repoVisibility'), value: visBadge.label }),
+            repo.defaultBranch && h(DetailRow, { label: t('repoDefaultBranch'), value: repo.defaultBranch }),
+            repo.language && h(DetailRow, { label: t('repoLanguage'), value: repo.language }),
+            typeof repo.starCount === 'number' && h(DetailRow, { label: t('repoStars'), value: String(repo.starCount) }),
+            typeof repo.forkCount === 'number' && h(DetailRow, { label: t('repoForks'), value: String(repo.forkCount) }),
+            typeof repo.openIssuesCount === 'number' && h(DetailRow, { label: t('repoOpenIssues'), value: String(repo.openIssuesCount) }),
+            h(DetailRow, { label: t('createdAt'), value: formatDate(repo.gmtCreate) }),
+            h(DetailRow, { label: t('updatedAt'), value: formatDate(repo.gmtModified) }),
+          ),
+          h('section', { className: `${CN}__descriptionSection`, 'aria-label': t('repoDescription') },
+            h('h4', null, t('repoDescription')),
+            h('div', {
+              className: repo.description
+                ? `${CN}__description`
+                : `${CN}__description ${CN}__descriptionEmpty`,
+            }, repo.description || t('repoNoDescription')),
+          ),
+          hasCloneUrl && h('section', { className: `${CN}__repoCloneUrls`, 'aria-label': t('repoCloneUrls') },
+            h('h4', null, t('repoCloneUrls')),
+            repo.httpUrl && h('div', { className: `${CN}__repoCloneUrlCard` },
+              h('span', { className: `${CN}__repoCloneUrlLabel` }, t('repoCloneHttps')),
+              h('div', { className: `${CN}__clonePath` }, repo.httpUrl),
+            ),
+            repo.sshUrl && h('div', { className: `${CN}__repoCloneUrlCard` },
+              h('span', { className: `${CN}__repoCloneUrlLabel` }, t('repoCloneSsh')),
+              h('div', { className: `${CN}__clonePath` }, repo.sshUrl),
+            ),
+          ),
+        ),
+      )
+    }
+
+    function RepoCloneModal({ t, cloneState, canCreateWorkspace, onClose, onRetry, onCreateWorkspace }) {
+      const open = cloneState.status !== 'idle'
+      if (!open) return null
+
+      const repo = cloneState.repo || {}
+      const repoLabel = repo.fullName || repo.pathWithNamespace || repo.name || ''
+      const title = repoLabel ? `${t('repoCloneModalTitle')} · ${repoLabel}` : t('repoCloneModalTitle')
+      const results = Array.isArray(cloneState.results) ? cloneState.results : []
+      const primaryResult = results[0] || null
+      const hasFailure = results.length === 0 || results.some(item => item.status === 'failed')
+      const readyRepo = results.find(
+        item => (item.status === 'cloned' || item.status === 'exists') && item.targetDir,
+      ) || null
+      const showWorkspacePrompt = cloneState.status === 'done' && !hasFailure && Boolean(readyRepo) && Boolean(canCreateWorkspace)
+
+      let footer
+      if (cloneState.status === 'loading') {
+        footer = [
+          h('button', {
+            key: 'cancel',
+            type: 'button',
+            className: `${CN}__button`,
+            onClick: onClose,
+          }, t('cancel')),
+        ]
+      } else if (cloneState.status === 'creating-workspace') {
+        footer = [
+          h('button', {
+            key: 'close',
+            type: 'button',
+            className: `${CN}__button`,
+            disabled: true,
+          }, t('close')),
+        ]
+      } else if (showWorkspacePrompt) {
+        footer = [
+          h('button', {
+            key: 'cancel-workspace',
+            type: 'button',
+            className: `${CN}__button`,
+            'data-action': 'dismiss-workspace',
+            onClick: onClose,
+          }, t('repoCreateWorkspaceCancel')),
+          h('button', {
+            key: 'create-workspace',
+            type: 'button',
+            className: `${CN}__button ${CN}__buttonPrimary`,
+            'data-action': 'confirm-workspace',
+            onClick: () => onCreateWorkspace?.(readyRepo),
+          }, t('repoCreateWorkspaceConfirm')),
+        ]
+      } else {
+        footer = [
+          (cloneState.status === 'error' || (cloneState.status === 'done' && hasFailure)) && h('button', {
+            key: 'retry',
+            type: 'button',
+            className: `${CN}__button`,
+            onClick: onRetry,
+          }, t('retry')),
+          h('button', {
+            key: 'close',
+            type: 'button',
+            className: `${CN}__button ${CN}__buttonPrimary`,
+            onClick: onClose,
+          }, t('close')),
+        ].filter(Boolean)
+      }
+
+      return h(DialogModal, {
+        open: true,
+        title,
+        closeLabel: t('close'),
+        onClose: cloneState.status === 'creating-workspace' ? () => {} : onClose,
+        footer,
+      },
+      h('div', { className: `${CN}__cloneModalBody` },
+        cloneState.status === 'loading' && h('p', { className: `${CN}__status`, role: 'status' }, t('repoCloneLoading')),
+        cloneState.status === 'creating-workspace' && h('p', { className: `${CN}__status`, role: 'status' }, t('cloneOpeningWorkspace')),
+        cloneState.status === 'empty' && h('p', { className: `${CN}__warning`, role: 'alert' }, t('repoCloneNotFound')),
+        cloneState.status === 'error' && h('p', { className: `${CN}__error`, role: 'alert' }, cloneState.error),
+        cloneState.status === 'done' && h('div', { className: `${CN}__cloneDone` },
+          cloneState.baseDir && h('p', { className: `${CN}__hint` }, `${t('cloneTargetDir')}：${cloneState.baseDir}`),
+          h('p', {
+            className: hasFailure ? `${CN}__warning` : `${CN}__cloneSummary`,
+            role: 'status',
+          }, hasFailure
+            ? t('repoCloneFailed')
+            : (primaryResult?.status === 'exists' ? t('repoCloneExists') : t('repoCloneSuccess'))),
+          cloneState.error && h('p', { className: `${CN}__error`, role: 'alert' }, cloneState.error),
+          h('ul', { className: `${CN}__cloneList` }, results.map((item, idx) => {
+            const badge = cloneResultBadge(t, item.status)
+            return h('li', { key: `${item.targetDir || item.name}-${idx}`, className: `${CN}__cloneItem` },
+              h('div', { className: `${CN}__cloneItemTop` },
+                h('span', { className: `${CN}__cloneRepoName` }, item.name || item.path),
+                h('span', { className: `${CN}__issueBadge ${badge.className}`.trim() }, badge.label),
+              ),
+              item.targetDir && h('div', { className: `${CN}__clonePath` }, item.targetDir),
+              item.error && h('div', { className: `${CN}__cloneItemError` }, item.error),
+            )
+          })),
+          showWorkspacePrompt && h('div', { className: `${CN}__workspacePrompt`, role: 'region', 'aria-live': 'polite' },
+            h('p', { className: `${CN}__workspacePromptText` }, t('repoCreateWorkspacePrompt')),
+          ),
+        ),
+      ))
+    }
+
+    function RepoWorkbench({ t, rpc, workspaces, uiWorkspace, account, accountTools }) {
+      const [organizationId, setOrganizationId] = React.useState('')
+      const [searchInput, setSearchInput] = React.useState('')
+      const [searchQuery, setSearchQuery] = React.useState('')
+      const [reload, setReload] = React.useState(0)
+      const [selectedRepoId, setSelectedRepoId] = React.useState(null)
+      const [state, setState] = React.useState({
+        status: 'loading',
+        data: null,
+        error: '',
+        loadingMore: false,
+        loadMoreError: '',
+      })
+      const [cloneState, setCloneState] = React.useState({
+        status: 'idle',
+        repo: null,
+        baseDir: '',
+        results: [],
+        error: '',
+      })
+      const sentinelRef = React.useRef(null)
+      const loadMoreControllerRef = React.useRef(null)
+      const cloneControllerRef = React.useRef(null)
+      const loadingMoreRef = React.useRef(false)
+      const queryKeyRef = React.useRef('')
+      const isGitHub = account.platform === 'github'
+      const isSupportedPlatform = SUPPORTED_ISSUE_PLATFORMS.has(account.platform)
+      const canLoad = isSupportedPlatform && Boolean(rpc)
+      const canCreateWorkspace = Boolean(workspaces && typeof workspaces.create === 'function')
+
+      React.useEffect(() => {
+        const trimmed = searchInput.trim()
+        if (trimmed === searchQuery) return
+        if (typeof setTimeout !== 'function') {
+          setSearchQuery(trimmed)
+          return
+        }
+        const timer = setTimeout(() => {
+          setSearchQuery(trimmed)
+        }, 300)
+        return () => clearTimeout(timer)
+      }, [searchInput, searchQuery])
+
+      React.useEffect(() => {
+        if (!canLoad) return
+        const queryKey = `${account.id}\0${organizationId}\0${searchQuery}\0${reload}`
+        queryKeyRef.current = queryKey
+        loadMoreControllerRef.current?.abort()
+        loadMoreControllerRef.current = null
+        loadingMoreRef.current = false
+        const controller = new AbortController()
+        setSelectedRepoId(null)
+        setState(previous => ({
+          status: 'loading',
+          data: previous.data,
+          error: '',
+          loadingMore: false,
+          loadMoreError: '',
+        }))
+        void callRpc(rpc, 'listRepos', {
+          accountId: account.id,
+          organizationId,
+          search: searchQuery,
+          page: 1,
+          pageSize: WORKITEM_PAGE_SIZE,
+        }, controller.signal).then(data => {
+          if (controller.signal.aborted || queryKeyRef.current !== queryKey) return
+          const loadedItems = data?.items ?? []
+          setSelectedRepoId(loadedItems[0]?.id ?? null)
+          setState({ status: 'ready', data, error: '', loadingMore: false, loadMoreError: '' })
+        }).catch(error => {
+          if (controller.signal.aborted || queryKeyRef.current !== queryKey) return
+          const message = error?.code === 'host-not-loaded'
+            ? t('hostNotLoaded')
+            : (error.message || t('repoUnavailable'))
+          setState(previous => ({
+            status: 'error',
+            data: previous.data,
+            error: message,
+            loadingMore: false,
+            loadMoreError: '',
+          }))
+        })
+        return () => {
+          controller.abort()
+          loadMoreControllerRef.current?.abort()
+          loadMoreControllerRef.current = null
+          loadingMoreRef.current = false
+        }
+      }, [rpc, account.id, account.platform, canLoad, organizationId, searchQuery, reload, t])
+
+      const data = state.data
+      const loading = state.status === 'loading'
+      const loadingMore = Boolean(state.loadingMore)
+      const loadMoreError = state.loadMoreError || ''
+      const organizations = data?.organizations ?? []
+      const items = data?.items ?? []
+      const hasMore = Boolean(data?.hasMore && data?.nextPage)
+      const selectedOrganizationId = organizationId || data?.selectedOrganizationId || (isGitHub ? 'all' : '')
+      const activeRepo = items.find(item => item.id === selectedRepoId) ?? items[0] ?? null
+      const effectiveTotalCount = !hasMore
+        ? items.length
+        : (typeof data?.totalCount === 'number' ? data.totalCount : null)
+
+      const loadMore = React.useCallback(() => {
+        if (!canLoad || state.status !== 'ready' || loadingMoreRef.current) return
+        const nextPage = state.data?.nextPage
+        if (!state.data?.hasMore || !nextPage) return
+        const queryKey = queryKeyRef.current
+        loadingMoreRef.current = true
+        loadMoreControllerRef.current?.abort()
+        const controller = new AbortController()
+        loadMoreControllerRef.current = controller
+        setState(previous => ({ ...previous, loadingMore: true, loadMoreError: '' }))
+        void callRpc(rpc, 'listRepos', {
+          accountId: account.id,
+          organizationId: selectedOrganizationId,
+          search: searchQuery,
+          page: nextPage,
+          pageSize: WORKITEM_PAGE_SIZE,
+        }, controller.signal).then(nextData => {
+          if (controller.signal.aborted || queryKeyRef.current !== queryKey) return
+          loadingMoreRef.current = false
+          if (loadMoreControllerRef.current === controller) loadMoreControllerRef.current = null
+          const nextHasMore = Boolean(nextData?.hasMore && nextData?.nextPage)
+          setState(previous => {
+            const prevData = previous.data || {}
+            const mergedItems = mergeRepoItems(prevData.items ?? [], nextData?.items ?? [])
+            return {
+              ...previous,
+              loadingMore: false,
+              loadMoreError: '',
+              data: {
+                ...prevData,
+                ...nextData,
+                organizations: nextData?.organizations?.length ? nextData.organizations : (prevData.organizations ?? []),
+                items: mergedItems,
+                totalCount: typeof nextData?.totalCount === 'number'
+                  ? nextData.totalCount
+                  : (!nextHasMore ? mergedItems.length : (prevData.totalCount ?? null)),
+                hasMore: nextHasMore,
+                nextPage: nextData?.nextPage ?? null,
+                truncated: Boolean(prevData.truncated || nextData?.truncated),
+              },
+            }
+          })
+        }).catch(error => {
+          if (controller.signal.aborted || queryKeyRef.current !== queryKey) return
+          loadingMoreRef.current = false
+          if (loadMoreControllerRef.current === controller) loadMoreControllerRef.current = null
+          const message = error?.code === 'host-not-loaded'
+            ? t('hostNotLoaded')
+            : (error.message || t('loadMoreReposError'))
+          setState(previous => ({ ...previous, loadingMore: false, loadMoreError: message }))
+        })
+      }, [canLoad, state.status, state.data, rpc, account.id, selectedOrganizationId, searchQuery, t])
+
+      React.useEffect(() => {
+        if (!hasMore || loading || loadingMore || loadMoreError) return
+        const sentinel = sentinelRef.current
+        if (!sentinel) return
+        const scrollRoot = sentinel.closest?.(`.${CN}__listScroll`)
+          ?? sentinel.closest?.(`.${CN}__page`)
+          ?? null
+        const useScrollRoot = Boolean(scrollRoot && scrollRoot.scrollHeight > scrollRoot.clientHeight)
+        const checkPosition = () => {
+          if (loadingMoreRef.current) return
+          const rect = sentinel.getBoundingClientRect()
+          const activeScrollRoot = scrollRoot && scrollRoot.scrollHeight > scrollRoot.clientHeight ? scrollRoot : null
+          const viewportBottom = activeScrollRoot
+            ? activeScrollRoot.getBoundingClientRect().bottom
+            : (typeof window !== 'undefined' ? window.innerHeight : 0)
+          if (rect.top <= viewportBottom + 160) {
+            loadMore()
+          }
+        }
+
+        let observer = null
+        if (typeof IntersectionObserver === 'function') {
+          observer = new IntersectionObserver((entries) => {
+            if (entries.some(entry => entry.isIntersecting)) {
+              loadMore()
+            }
+          }, {
+            root: useScrollRoot ? scrollRoot : null,
+            rootMargin: '160px 0px',
+          })
+          observer.observe(sentinel)
+        }
+
+        scrollRoot?.addEventListener('scroll', checkPosition, { passive: true })
+        if (typeof window !== 'undefined') {
+          window.addEventListener('scroll', checkPosition, { passive: true })
+        }
+        return () => {
+          observer?.disconnect()
+          scrollRoot?.removeEventListener('scroll', checkPosition)
+          if (typeof window !== 'undefined') {
+            window.removeEventListener('scroll', checkPosition)
+          }
+        }
+      }, [hasMore, loading, loadingMore, loadMoreError, loadMore])
+
+      const startCloneRepo = React.useCallback((repo) => {
+        if (!canLoad || !repo?.id) return
+        const orgId = repo.organizationId || data?.selectedOrganizationId || selectedOrganizationId
+        cloneControllerRef.current?.abort()
+        const controller = new AbortController()
+        cloneControllerRef.current = controller
+        setCloneState({
+          status: 'loading',
+          repo,
+          baseDir: '',
+          results: [],
+          error: '',
+        })
+        void callRpc(rpc, 'cloneRepo', {
+          accountId: account.id,
+          organizationId: orgId,
+          repositoryId: repo.id,
+        }, controller.signal).then((result) => {
+          if (controller.signal.aborted) return
+          if (cloneControllerRef.current === controller) cloneControllerRef.current = null
+          const results = Array.isArray(result?.results) ? result.results : []
+          if (result?.empty || results.length === 0) {
+            setCloneState({
+              status: 'empty',
+              repo,
+              baseDir: result?.baseDir || '',
+              results: [],
+              error: '',
+            })
+            return
+          }
+          setCloneState({
+            status: 'done',
+            repo,
+            baseDir: result?.baseDir || '',
+            results,
+            error: '',
+          })
+        }).catch((error) => {
+          if (controller.signal.aborted) return
+          if (cloneControllerRef.current === controller) cloneControllerRef.current = null
+          const message = error?.code === 'host-not-loaded'
+            ? t('hostNotLoaded')
+            : (error.message || t('repoCloneError'))
+          setCloneState({
+            status: 'error',
+            repo,
+            baseDir: '',
+            results: [],
+            error: message,
+          })
+        })
+      }, [canLoad, data?.selectedOrganizationId, selectedOrganizationId, rpc, account.id, t])
+
+      const createWorkspaceForRepo = React.useCallback((readyRepo) => {
+        if (!readyRepo?.targetDir || !canCreateWorkspace) return
+        cloneControllerRef.current?.abort()
+        const controller = new AbortController()
+        cloneControllerRef.current = controller
+        setCloneState(previous => ({
+          ...previous,
+          status: 'creating-workspace',
+          error: '',
+        }))
+        void (async () => {
+          try {
+            const created = await workspaces.create({ path: readyRepo.targetDir })
+            if (controller.signal.aborted) return
+            if (created?.workspaceId && uiWorkspace && typeof uiWorkspace.openWorkspace === 'function') {
+              await uiWorkspace.openWorkspace(created.workspaceId)
+            }
+            if (controller.signal.aborted) return
+            if (cloneControllerRef.current === controller) cloneControllerRef.current = null
+            setCloneState({
+              status: 'idle',
+              repo: null,
+              baseDir: '',
+              results: [],
+              error: '',
+            })
+          } catch (workspaceError) {
+            if (controller.signal.aborted) return
+            if (cloneControllerRef.current === controller) cloneControllerRef.current = null
+            const detailMsg = workspaceError instanceof Error ? workspaceError.message : String(workspaceError || '')
+            setCloneState(previous => ({
+              ...previous,
+              status: 'done',
+              error: `${t('cloneWorkspaceError')} ${detailMsg}`.trim(),
+            }))
+          }
+        })()
+      }, [canCreateWorkspace, workspaces, uiWorkspace, t])
+
+      const closeCloneModal = React.useCallback(() => {
+        cloneControllerRef.current?.abort()
+        cloneControllerRef.current = null
+        setCloneState({
+          status: 'idle',
+          repo: null,
+          baseDir: '',
+          results: [],
+          error: '',
+        })
+      }, [])
+
+      React.useEffect(() => () => {
+        cloneControllerRef.current?.abort()
+        cloneControllerRef.current = null
+      }, [])
+
+      if (!isSupportedPlatform) {
+        return h('section', { className: `${CN}__issues` },
+          accountTools && h('div', { className: `${CN}__issueToolbar` },
+            h('div', { className: `${CN}__issueToolbarLeft` }, accountTools),
+          ),
+          h('div', { className: `${CN}__issueUnsupported` },
+            h('h2', null, t('unsupportedRepos')),
+            h('p', null, t('unsupportedReposDescription')),
+          ),
+        )
+      }
+      if (!rpc) {
+        return h('section', { className: `${CN}__issues` },
+          accountTools && h('div', { className: `${CN}__issueToolbar` },
+            h('div', { className: `${CN}__issueToolbarLeft` }, accountTools),
+          ),
+          h('p', { className: `${CN}__error`, role: 'alert' }, t('repoUnavailable')),
+        )
+      }
+
+      const orgOptions = isGitHub
+        ? [
+            { value: 'all', label: t('allOwners') },
+            ...organizations.map(item => ({ value: item.id, label: item.name })),
+          ]
+        : organizations.map(item => ({ value: item.id, label: item.name }))
+      const summaryText = formatTotalSummary(t, {
+        loadedCount: items.length,
+        hasMore,
+        totalCount: effectiveTotalCount,
+        countStatus: 'idle',
+        countTruncated: Boolean(data?.truncated),
+        unitLabel: t('repoCount'),
+      })
+
+      return h('section', {
+        className: `${CN}__issues`,
+        'aria-label': isGitHub ? t('githubRepos') : t('repos'),
+        'aria-busy': loading || loadingMore,
+      },
+      h('div', { className: `${CN}__issueToolbar` },
+        h('div', { className: `${CN}__issueToolbarLeft` }, accountTools),
+        h('div', { className: `${CN}__issueToolbarRight` },
+          data && h(NativeSelect, {
+            className: `${CN}__filterSelect`,
+            value: selectedOrganizationId,
+            options: orgOptions,
+            disabled: loading || orgOptions.length === 0 || (isGitHub && organizations.length === 0),
+            ariaLabel: isGitHub ? t('owner') : t('organization'),
+            placeholder: isGitHub ? t('allOwners') : t('organization'),
+            onChange: nextOrg => setOrganizationId(nextOrg),
+          }),
+          h('input', {
+            type: 'search',
+            className: `${CN}__searchInput`,
+            value: searchInput,
+            placeholder: t('repoSearchPlaceholder'),
+            'aria-label': t('repoSearchPlaceholder'),
+            onChange: event => setSearchInput(event.target.value),
+            onKeyDown: (event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                setSearchQuery(searchInput.trim())
+              }
+            },
+          }),
+          h('button', {
+            type: 'button',
+            className: `${CN}__button`,
+            disabled: loading,
+            onClick: () => setReload(value => value + 1),
+          }, h(RefreshIcon), loading ? t('refreshing') : t('refresh')),
+        ),
+      ),
+      loading && h('p', { className: `${CN}__status`, role: 'status' }, isGitHub ? t('githubReposLoading') : t('reposLoading')),
+      state.status === 'error' && h('div', { className: `${CN}__issueError`, role: 'alert' },
+        h('p', { className: `${CN}__error` }, state.error),
+        h('button', { type: 'button', className: `${CN}__button`, onClick: () => setReload(value => value + 1) }, t('retry')),
+      ),
+      !isGitHub && data && !loading && organizations.length === 0 && h('p', { className: `${CN}__status` }, t('noOrganizations')),
+      data && !loading && items.length === 0 && (isGitHub || organizations.length > 0) && h('div', { className: `${CN}__issueEmpty` },
+        h('h3', null, t('noRepos')),
+        h('p', null, isGitHub ? t('noGithubReposDescription') : t('noReposDescription')),
+      ),
+      items.length > 0 && h('div', { className: `${CN}__split` },
+        h('div', { className: `${CN}__listPane` },
+          h('div', { className: `${CN}__listHeader` },
+            h('span', { className: `${CN}__issueSummary` }, summaryText),
+          ),
+          h('div', { className: `${CN}__listScroll` },
+            items.map(repo =>
+              h(RepoListItem, {
+                key: repo.id,
+                t,
+                repo,
+                selected: activeRepo?.id === repo.id,
+                onSelect: () => setSelectedRepoId(repo.id),
+              })),
+            !loading && hasMore && h('div', {
+              ref: sentinelRef, className: `${CN}__loadMoreSentinel`, 'aria-hidden': true,
+            }),
+            !loading && loadingMore && h('p', {
+              className: `${CN}__status ${CN}__loadMoreStatus`, role: 'status',
+            }, t('loadingMoreRepos')),
+            !loading && !loadingMore && loadMoreError && h('div', {
+              className: `${CN}__issueError ${CN}__loadMoreError`, role: 'alert',
+            },
+            h('p', { className: `${CN}__error` }, loadMoreError),
+            h('button', { type: 'button', className: `${CN}__button`, onClick: loadMore }, t('retry'))),
+            !loading && !loadingMore && !loadMoreError && hasMore && h('div', {
+              className: `${CN}__loadMoreRow`,
+            }, h('button', { type: 'button', className: `${CN}__button`, onClick: loadMore }, t('loadMore'))),
+            !loading && !loadingMore && !loadMoreError && !hasMore && h('p', {
+              className: `${CN}__loadMoreEnd`,
+            }, t('noMoreRepos')),
+          ),
+        ),
+        h('div', { className: `${CN}__detailPane` },
+          h(RepoDetailPane, {
+            t,
+            platform: account.platform,
+            repo: activeRepo,
+            cloning: (cloneState.status === 'loading' || cloneState.status === 'creating-workspace')
+              && cloneState.repo?.id === activeRepo?.id,
+            onClone: startCloneRepo,
+          }),
+        ),
+      ),
+      h(RepoCloneModal, {
+        t,
+        cloneState,
+        canCreateWorkspace,
+        onClose: closeCloneModal,
+        onRetry: () => startCloneRepo(cloneState.repo),
+        onCreateWorkspace: createWorkspaceForRepo,
+      }))
+    }
+
     function AccountFormFields({
       t, formId, busy, error, mode, platform, setPlatform,
       username, setUsername, token, setToken, onSubmit,
@@ -1720,6 +2536,7 @@ window.__ModuleLoader__.load({
       const [busy, setBusy] = React.useState(false)
       const [selectionBusy, setSelectionBusy] = React.useState(false)
       const [error, setError] = React.useState('')
+      const [viewMode, setViewMode] = React.useState('tasks')
       const formId = React.useId()
       const canWrite = snapshot.status === 'ready' && snapshot.writable
       const editingAccount = modal.kind === 'edit'
@@ -1916,6 +2733,10 @@ window.__ModuleLoader__.load({
         value: account.id,
         label: `${platformName(account.platform)} · ${account.username}`,
       }))
+      const viewModeOptions = [
+        { value: 'tasks', label: t('viewTasks') },
+        { value: 'repos', label: t('viewRepos') },
+      ]
 
       const accountTools = accounts.length > 0 && h('div', { className: `${CN}__accountTools` },
         h(NativeSelect, {
@@ -1925,6 +2746,14 @@ window.__ModuleLoader__.load({
           disabled: busy || selectionBusy || !canWrite,
           ariaLabel: t('accountSelect'),
           onChange: selectAccount,
+        }),
+        h(NativeSelect, {
+          className: `${CN}__viewModeSelect`,
+          value: viewMode,
+          options: viewModeOptions,
+          disabled: busy || selectionBusy,
+          ariaLabel: t('viewModeSelect'),
+          onChange: nextMode => setViewMode(nextMode === 'repos' ? 'repos' : 'tasks'),
         }),
         h('button', {
           type: 'button', className: `${CN}__button`,
@@ -1990,8 +2819,9 @@ window.__ModuleLoader__.load({
               'aria-label': t('manageAccounts'),
             }, h(EditIcon), t('manageAccounts')),
           ),
-          snapshot.status === 'ready' && selected
-            && h(IssueWorkbench, { key: selected.id, t, rpc, workspaces, uiWorkspace, account: selected, accountTools }),
+          snapshot.status === 'ready' && selected && (viewMode === 'repos'
+            ? h(RepoWorkbench, { key: `repos:${selected.id}`, t, rpc, workspaces, uiWorkspace, account: selected, accountTools })
+            : h(IssueWorkbench, { key: selected.id, t, rpc, workspaces, uiWorkspace, account: selected, accountTools })),
         ),
         h(DialogModal, {
           open: isModalOpen,
@@ -2050,7 +2880,10 @@ window.__ModuleLoader__.load({
 .${CN}__selectFallback{box-sizing:border-box;height:32px;padding:0 26px 0 10px;border:0.5px solid var(--dsw-alias-border-l3);border-radius:8px;background:var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-base));color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;cursor:pointer}
 .${CN}__selectFallback:disabled{opacity:.5;cursor:not-allowed}
 .${CN}__accountSelect{min-width:140px;max-width:240px}
+.${CN}__viewModeSelect{min-width:108px;max-width:160px}
 .${CN}__filterSelect{min-width:140px;max-width:220px}
+.${CN}__searchInput{box-sizing:border-box;height:32px;min-width:150px;max-width:220px;padding:0 10px;border:0.5px solid var(--dsw-alias-border-l2,var(--dsw-alias-border-l3));border-radius:8px;background:var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-base));color:var(--dsw-alias-label-primary);font:inherit;font-size:13px}
+.${CN}__searchInput::placeholder{color:var(--dsw-alias-label-caption)}
 .${CN}__formSelect{width:100%;height:36px}
 .${CN}__iconButton{display:inline-flex;align-items:center;justify-content:center;flex:none;width:28px;height:28px;padding:0;border:0;border-radius:6px;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer}
 .${CN}__iconButton:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
@@ -2119,6 +2952,13 @@ window.__ModuleLoader__.load({
 .${CN}__detailEmpty{flex:1;display:flex;align-items:center;justify-content:center;padding:32px;color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));font-size:13px}
 .${CN}__detailHeader{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;margin-bottom:8px}
 .${CN}__detailHeaderMeta{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.${CN}__detailHeaderActions{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.${CN}__repoCloneUrls{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+.${CN}__repoCloneUrls h4{margin:0;color:var(--dsw-alias-label-primary);font-size:13px;line-height:20px;font-weight:600}
+.${CN}__repoCloneUrlCard{padding:10px 12px;border-radius:10px;border:0.5px solid var(--dsw-alias-border-l2,var(--dsw-alias-border-l3));background:var(--dsw-alias-bg-base);display:flex;flex-direction:column;gap:3px}
+.${CN}__repoCloneUrlLabel{color:var(--dsw-alias-label-secondary);font-size:11px;line-height:16px}
+.${CN}__workspacePrompt{padding:12px 14px;border-radius:10px;border:0.5px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-bg-layer-1)}
+.${CN}__workspacePromptText{margin:0;color:var(--dsw-alias-label-primary);font-size:13px;font-weight:500;line-height:20px}
 .${CN}__detailTitle{margin:0 0 14px;color:var(--dsw-alias-label-primary);font-size:17px;line-height:24px;font-weight:600;overflow-wrap:anywhere}
 .${CN}__openLink{display:inline-flex;align-items:center;gap:5px;color:var(--dsw-alias-brand-primary);font-size:12px;text-decoration:none}
 .${CN}__openLink:hover{text-decoration:underline}
@@ -2177,7 +3017,7 @@ window.__ModuleLoader__.load({
 .${CN}__confirmText strong{color:var(--dsw-alias-label-primary);font-size:13px;line-height:20px;font-weight:500;overflow-wrap:anywhere}
 .${CN}__confirmText p{margin:2px 0 0;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:18px}
 .${CN}__formActions{display:flex;justify-content:flex-end;gap:8px}
-.${CN}__selectTrigger:focus-visible,.${CN}__selectFallback:focus-visible,.${CN}__field input:focus-visible,.${CN}__issueItem:focus-visible,.${CN}__taskActionBtn:focus-visible,.${CN}__button:focus-visible,.${CN}__iconButton:focus-visible,.${CN}__openLink:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}
+.${CN}__selectTrigger:focus-visible,.${CN}__selectFallback:focus-visible,.${CN}__searchInput:focus-visible,.${CN}__field input:focus-visible,.${CN}__issueItem:focus-visible,.${CN}__taskActionBtn:focus-visible,.${CN}__button:focus-visible,.${CN}__iconButton:focus-visible,.${CN}__openLink:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}
 @media(max-width:860px){.${CN}__page{overflow:auto}.${CN}__content{padding:20px 16px 32px;flex:none}.${CN}__split{grid-template-columns:1fr;flex:none}.${CN}__listPane{max-height:420px}.${CN}__detailPane{min-height:320px}.${CN}__accountTools{width:100%}.${CN}__accountSelect{flex:1;max-width:none}}
 @media(pointer:coarse){.${CN}__field input{font-size:16px}}
 `
