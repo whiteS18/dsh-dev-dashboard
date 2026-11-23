@@ -1,4 +1,6 @@
+import { createCloneService } from './clone.js'
 import { CodeupError, createCodeupApi } from './codeup.js'
+import { GitHubError, createGitHubApi } from './github.js'
 
 /** Authenticated browser-to-Host channel; payloads never contain access tokens. */
 export const RPC_CHANNEL = '/dsh-dev-dashboard'
@@ -65,21 +67,41 @@ function optionalCursor(value) {
   if (typeof value !== 'object' || Array.isArray(value)) {
     throw rpcError('bad-request', '请求参数 cursor 无效。')
   }
-  return {
+  const mode = optionalString(value.mode, 'cursor.mode', 30)
+  if (mode && mode !== 'global' && mode !== 'repos') {
+    throw rpcError('bad-request', '请求参数 cursor.mode 无效。')
+  }
+  const normalized = {
     projectIndex: requiredInteger(value.projectIndex, 'cursor.projectIndex', 0, 100000),
     page: requiredInteger(value.page, 'cursor.page', 1, 100000),
     offset: requiredInteger(value.offset, 'cursor.offset', 0, 10000),
     anchorId: optionalString(value.anchorId, 'cursor.anchorId', 200),
   }
+  return mode ? { ...normalized, mode } : normalized
 }
 
-function codeupAccount(config, accountId) {
+function normalizePlatformApis(apis) {
+  if (!apis) {
+    return {
+      codeup: createCodeupApi(),
+      github: createGitHubApi(),
+    }
+  }
+  if (typeof apis.load === 'function') {
+    return { codeup: apis }
+  }
+  return apis
+}
+
+function resolveAccountAndApi(config, accountId, platformApis) {
   const accounts = unwrapVolatile(config?.accounts, [])
   const account = Array.isArray(accounts)
-    ? accounts.find(item => item && item.id === accountId && item.platform === 'codeup')
+    ? accounts.find(item => item && item.id === accountId)
     : undefined
-  if (!account) throw rpcError('account-not-found', '找不到这个 Codeup 账户，请重新选择。')
-  return account
+  if (!account) throw rpcError('account-not-found', '找不到这个账户，请重新选择。')
+  const api = Object.hasOwn(platformApis, account.platform) ? platformApis[account.platform] : null
+  if (!api) throw rpcError('account-not-found', '该平台尚未接入 Issue 获取，请重新选择账户。')
+  return { account, api }
 }
 
 function ok(value) {
@@ -87,14 +109,15 @@ function ok(value) {
 }
 
 function failure(error) {
-  const known = error instanceof CodeupError || typeof error?.code === 'string'
+  const isPlatformError = error instanceof CodeupError || error instanceof GitHubError
+  const known = isPlatformError || typeof error?.code === 'string'
   const aborted = error?.name === 'AbortError' || error?.name === 'TimeoutError'
   const message = aborted
     ? '请求已取消或超时。'
     : known && typeof error?.message === 'string'
       ? error.message
-      : '云效请求失败，请检查网络后重试。'
-  const details = error instanceof CodeupError && Number.isInteger(error.details?.status)
+      : '平台请求失败，请检查网络后重试。'
+  const details = isPlatformError && Number.isInteger(error.details?.status)
     ? { status: error.details.status }
     : {}
   return {
@@ -230,13 +253,14 @@ async function serveRpc(req, res, connection, dispatch) {
  * lookup so a missing credential service yields a clear RPC error instead of an
  * unhandled POST falling through to the SPA fallback (HTTP 405).
  */
-export function registerIssueRpc(ctx, config, api = createCodeupApi()) {
+export function registerIssueRpc(ctx, config, apis = null, cloneService = createCloneService()) {
+  const platformApis = normalizePlatformApis(apis)
   const dispatch = async (endpoint, rawPayload, signal) => {
     let token = ''
     try {
       const payload = requireObject(rawPayload)
       const accountId = requiredString(payload.accountId, 'accountId', 100)
-      const account = codeupAccount(config, accountId)
+      const { account, api } = resolveAccountAndApi(config, accountId, platformApis)
       signal?.throwIfAborted()
       const credentials = ctx.get('credentials')
       if (credentials === undefined) {
@@ -268,10 +292,40 @@ export function registerIssueRpc(ctx, config, api = createCodeupApi()) {
         }))
       }
       if (endpoint === 'detail') {
+        const organizationId = account.platform === 'codeup'
+          ? requiredString(payload.organizationId, 'organizationId')
+          : optionalString(payload.organizationId, 'organizationId')
         return ok(await api.detail({
           token,
-          organizationId: requiredString(payload.organizationId, 'organizationId'),
+          organizationId,
           issueId: requiredString(payload.issueId, 'issueId'),
+          signal,
+        }))
+      }
+      if (endpoint === 'cloneRepos') {
+        const organizationId = account.platform === 'codeup'
+          ? requiredString(payload.organizationId, 'organizationId')
+          : optionalString(payload.organizationId, 'organizationId')
+        const issueId = requiredString(payload.issueId, 'issueId')
+        const repoData = await api.repositories({
+          token,
+          organizationId,
+          issueId,
+          signal,
+        })
+        const repositories = Array.isArray(repoData?.repositories) ? repoData.repositories : []
+        if (repositories.length === 0) {
+          return ok({
+            empty: true,
+            baseDir: cloneService.baseDir(),
+            results: [],
+          })
+        }
+        return ok(await cloneService.cloneRepositories({
+          repositories,
+          username: repoData?.user?.username || account.username,
+          token,
+          platform: account.platform,
           signal,
         }))
       }
@@ -293,6 +347,6 @@ export function registerIssueRpc(ctx, config, api = createCodeupApi()) {
       kind: 'prefix',
       path: RPC_CHANNEL,
       handler: (req, res) => serveRpc(req, res, connection, dispatch),
-    }), 'git-workbench: Codeup issue RPC route')
+    }), 'git-workbench: issue RPC route')
   })
 }

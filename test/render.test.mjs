@@ -17,27 +17,42 @@ const zhDict = {
   formTitle: '新增 Git 账户', platform: '托管平台', username: '用户名',
   token: '访问令牌', tokenPlaceholder: '输入访问令牌',
   tokenHint: '令牌仅写入本机凭据存储', save: '保存账户', cancel: '取消',
-  issues: 'Codeup 工作项', scopeAll: '我负责或参与',
-  organization: '组织', project: '项目', allProjects: '全部项目',
+  issues: 'Codeup 工作项', githubIssues: 'GitHub Issues', scopeAll: '我负责或参与',
+  organization: '组织', owner: '所有者', allOwners: '全部所有者',
+  project: '项目', repository: '仓库', allProjects: '全部项目', allRepositories: '全部仓库',
   refresh: '刷新', refreshing: '正在刷新…',
-  issuesLoading: '正在读取 Codeup 工作项…', issueCount: '个工作项',
+  issuesLoading: '正在读取 Codeup 工作项…', githubIssuesLoading: '正在读取 GitHub Issues…',
+  issueCount: '个工作项', githubIssueCount: '个 Issue',
   totalPrefix: '共', loadedCount: '已加载', countingTotal: '正在统计总数…',
   noIssues: '没有匹配的工作项', noIssuesDescription: '可以尝试切换范围、组织或项目。',
+  noGithubIssues: '没有匹配的 Issue', noGithubIssuesDescription: '可以尝试切换所有者或仓库，或在 GitHub 中创建 Issue 后刷新。',
   selectIssuePrompt: '点击左侧任务查看详细描述',
   truncated: '结果可能不完整：本次查询已达到扫描上限。',
   detailLoading: '正在读取详情…', detailError: '详情读取失败。',
   description: '任务描述', noDescription: '暂无描述。',
-  serialNumber: '编号', type: '类型', typeBug: '缺陷', typeTask: '任务', typeReq: '需求', status: '状态', assignedTo: '负责人',
+  serialNumber: '编号', type: '类型', typeBug: '缺陷', typeTask: '任务', typeReq: '需求', typeIssue: 'Issue', status: '状态', assignedTo: '负责人',
   participants: '参与人', creator: '创建人', updatedAt: '更新时间', createdAt: '创建时间',
-  labels: '标签', otherFields: '其他字段', openInCodeup: '在云效中打开',
+  labels: '标签', otherFields: '其他字段', openInCodeup: '在云效中打开', openInGitHub: '在 GitHub 中打开',
   relationAssigned: '负责人', relationParticipant: '参与人',
   actionStart: '开始', actionContinue: '继续',
+  cloneModalTitleStart: '开始任务', cloneModalTitleContinue: '继续任务',
+  cloneLoading: '正在查询该任务关联的仓库并依次克隆到 ~/project…',
+  cloneNoRepos: '该任务没有关联仓库，请先去关联。',
+  cloneTargetDir: '目标目录',
+  cloneStatusCloned: '克隆成功', cloneStatusExists: '已存在，已跳过', cloneStatusFailed: '克隆失败',
+  cloneAllSuccess: '关联仓库已准备就绪。',
+  clonePartialFailure: '部分仓库克隆失败，请检查权限或本地目录后重试。',
+  cloneError: '克隆关联仓库失败。',
+  cloneOpeningWorkspace: '正在以该仓库开启工作区…',
+  cloneWorkspaceError: '仓库已就绪，但自动开启工作区失败。',
   copyCode: '复制代码', copied: '已复制', footnotes: '注释',
   noOrganizations: '这个账户没有可用的云效组织。', noProjects: '这个组织下没有可用项目。',
-  loadMore: '加载更多', loadingMore: '正在加载更多工作项…',
-  noMoreIssues: '已加载全部工作项', loadMoreError: '加载更多工作项失败。',
+  noRepositories: '这个账户下没有可访问的 GitHub 仓库。',
+  loadMore: '加载更多', loadingMore: '正在加载更多工作项…', loadingMoreGithub: '正在加载更多 Issue…',
+  noMoreIssues: '已加载全部工作项', noMoreGithubIssues: '已加载全部 Issue',
+  loadMoreError: '加载更多工作项失败。', loadMoreGithubError: '加载更多 Issue 失败。',
   unsupportedIssues: '该平台尚未接入 Issue 获取',
-  unsupportedDescription: '目前仅支持 Codeup（云效项目协作）的需求、任务和缺陷。',
+  unsupportedDescription: '目前支持 Codeup（云效项目协作）和 GitHub 的 Issue 获取。',
   issueUnavailable: '当前连接不可用，无法读取工作项。', retry: '重试',
 }
 
@@ -190,6 +205,7 @@ function pageStates(data, {
   username = '',
   selectedIssueId = 'issue-1',
   countState = { status: 'ready', total: null, truncated: false },
+  cloneState = { status: 'idle', issue: null, actionKind: 'start', baseDir: '', results: [], error: '' },
   issueStateOverrides = {},
   detailItem = null,
 } = {}) {
@@ -211,6 +227,7 @@ function pageStates(data, {
       [selectedIssueId, () => {}],
       [{ status: 'ready', data, error: '', loadingMore: false, loadMoreError: '', ...issueStateOverrides }, () => {}],
       [countState, () => {}],
+      [cloneState, () => {}],
     ],
     IssueDetailPane: [
       [{ status: 'ready', detail: detailItem || data.items[0], error: '' }, () => {}],
@@ -537,7 +554,7 @@ test('encodes every Yunxiao URL segment, maps categories, and shows unsupported 
   form.snapshot = {
     status: 'ready', writable: true,
     value: {
-      accounts: [{ id: 'acc-2', platform: 'github', username: 'tester' }],
+      accounts: [{ id: 'acc-2', platform: 'gitlab', username: 'tester' }],
       selectedAccountId: 'acc-2',
     },
   }
@@ -546,6 +563,66 @@ test('encodes every Yunxiao URL segment, maps categories, and shows unsupported 
   assert.ok(unsupported.text.includes('管理账户'))
   assert.ok(unsupported.nodes.some(node => String(node.props.className).includes('__accountTools')))
   assert.equal(unsupported.nodes.some(node => node.tag === 'a'), false)
+})
+
+test('renders GitHub issue workbench with owner/repository filters, labels, and safe GitHub links', () => {
+  const { render, form } = harness()
+  form.snapshot = {
+    status: 'ready',
+    writable: true,
+    value: {
+      accounts: [{ id: 'acc-gh', platform: 'github', username: 'octocat' }],
+      selectedAccountId: 'acc-gh',
+    },
+  }
+  const ghIssue = makeIssue({
+    id: 'octocat/my-repo#12',
+    organizationId: 'octocat',
+    title: 'Add dark mode',
+    subject: 'Add dark mode',
+    serialNumber: '#12',
+    status: { id: 'open', name: 'Open', displayName: 'Open', nameEn: 'Open' },
+    statusStageId: '1',
+    categoryId: 'Req',
+    workitemType: { id: 'req', name: 'Feature' },
+    space: { id: 'octocat/my-repo', name: 'octocat/my-repo' },
+    labels: [{ id: '1', name: 'enhancement' }, { id: '2', name: 'ui' }],
+    webUrl: 'https://github.com/octocat/my-repo/issues/12',
+    relations: ['participant'],
+  })
+  const ghData = issueData({
+    organizations: [{ id: 'octocat', name: 'octocat' }],
+    projects: [{ id: 'octocat/my-repo', name: 'octocat/my-repo' }],
+    selectedOrganizationId: 'all',
+    selectedProjectId: 'all',
+    items: [ghIssue],
+    totalCount: 1,
+    truncated: false,
+  })
+  const rendered = render(pageStates(ghData, {
+    selectedIssueId: 'octocat/my-repo#12',
+    detailItem: ghIssue,
+  }))
+
+  for (const expected of [
+    '全部所有者', '全部仓库', 'Add dark mode', '#12', 'Open', 'octocat/my-repo',
+    '共 1 个 Issue', '在 GitHub 中打开', '仓库', '标签', 'enhancement、ui', '开始',
+  ]) {
+    assert.ok(rendered.text.includes(expected), `missing rendered GitHub text: ${expected}`)
+  }
+  assert.equal(rendered.text.includes('该平台尚未接入 Issue 获取'), false)
+
+  const links = rendered.nodes.filter(node => node.tag === 'a')
+  assert.equal(links.length, 1)
+  assert.equal(links[0].props.href, 'https://github.com/octocat/my-repo/issues/12')
+
+  // Reject non-GitHub URLs on GitHub accounts
+  const evilIssue = { ...ghIssue, webUrl: 'https://evil.example/phish' }
+  const evilRender = render(pageStates(issueData({ ...ghData, items: [evilIssue] }), {
+    selectedIssueId: evilIssue.id,
+    detailItem: evilIssue,
+  }))
+  assert.equal(evilRender.nodes.some(node => node.tag === 'a'), false)
 })
 
 test('renders total statistical count and pagination footer states', () => {
@@ -813,4 +890,258 @@ test('IssueWorkbench queries 20 items, fetches background total count, and loads
     ['assigned', 'participant'],
   )
   assert.equal(stateSlots[4].data.hasMore, false)
+})
+
+test('renders TaskCloneModal for empty repositories and multi-repo clone results', () => {
+  const { render, form } = harness()
+  form.snapshot = accountSnapshot()
+  const issue = makeIssue({ id: 'issue-start', statusStageId: '1', serialNumber: 'PROJ-10' })
+  const data = issueData({ items: [issue], totalCount: 1, truncated: false })
+
+  const emptyModal = render(pageStates(data, {
+    selectedIssueId: 'issue-start',
+    cloneState: {
+      status: 'empty',
+      issue,
+      actionKind: 'start',
+      baseDir: '/Users/tester/project',
+      results: [],
+      error: '',
+    },
+  }))
+  assert.ok(emptyModal.text.includes('开始任务 · PROJ-10'))
+  assert.ok(emptyModal.text.includes('该任务没有关联仓库，请先去关联。'))
+
+  const doneModal = render(pageStates(data, {
+    selectedIssueId: 'issue-start',
+    cloneState: {
+      status: 'done',
+      issue,
+      actionKind: 'continue',
+      baseDir: '/Users/tester/project',
+      results: [
+        { name: 'repo-one', path: 'repo-one', targetDir: '/Users/tester/project/repo-one', status: 'cloned', error: '' },
+        { name: 'repo-two', path: 'repo-two', targetDir: '/Users/tester/project/repo-two', status: 'exists', error: '' },
+      ],
+      error: '',
+    },
+  }))
+  assert.ok(doneModal.text.includes('继续任务 · PROJ-10'))
+  assert.ok(doneModal.text.includes('目标目录：/Users/tester/project'))
+  assert.ok(doneModal.text.includes('repo-one'))
+  assert.ok(doneModal.text.includes('克隆成功'))
+  assert.ok(doneModal.text.includes('repo-two'))
+  assert.ok(doneModal.text.includes('已存在，已跳过'))
+})
+
+test('clicking Start or Continue selects the issue and triggers cloneRepos RPC', async () => {
+  const rpcCalls = []
+  const startIssue = makeIssue({ id: 'issue-start', title: '待开始任务', statusStageId: '1' })
+  const continueIssue = makeIssue({ id: 'issue-continue', title: '进行中任务', statusStageId: '2' })
+
+  let definition
+  const context = {
+    window: {
+      __ModuleLoader__: { load(value) { definition = value } },
+      innerHeight: 800,
+      addEventListener() {},
+      removeEventListener() {},
+    },
+    console, AbortController, Intl, Date, URL,
+  }
+  vm.runInNewContext(source, context)
+
+  const stateSlots = []
+  const refSlots = []
+  const effectSlots = []
+  let stateIdx = 0
+  let refIdx = 0
+  let effectIdx = 0
+  let pendingEffects = []
+  let latestTree = null
+
+  let scheduled = false
+  function scheduleRerender() {
+    if (scheduled) return
+    scheduled = true
+    queueMicrotask(() => {
+      scheduled = false
+      rerender()
+    })
+  }
+
+  const React = {
+    createElement(type, props, ...children) { return { type, props: props || {}, children } },
+    useState(initial) {
+      const idx = stateIdx++
+      if (!(idx in stateSlots)) stateSlots[idx] = typeof initial === 'function' ? initial() : initial
+      const setState = (updater) => {
+        stateSlots[idx] = typeof updater === 'function' ? updater(stateSlots[idx]) : updater
+        scheduleRerender()
+      }
+      return [stateSlots[idx], setState]
+    },
+    useRef(initial) {
+      const idx = refIdx++
+      if (!(idx in refSlots)) refSlots[idx] = { current: initial }
+      return refSlots[idx]
+    },
+    useCallback(fn) { return fn },
+    useEffect(effect, deps) {
+      const idx = effectIdx++
+      const prev = effectSlots[idx]
+      const changed = !prev || !deps || deps.some((d, i) => !Object.is(d, prev.deps[i]))
+      if (changed) pendingEffects.push({ idx, effect, deps })
+    },
+    useSyncExternalStore(_sub, getSnapshot) { return getSnapshot() },
+    useId() { return 'test-id' },
+  }
+
+  const plugin = definition.factory((name) => {
+    if (name === 'react') return React
+    if (name === '@deepseek-ai/dsh-client-ui-primitives') return {}
+    throw new Error(`Unexpected require: ${name}`)
+  })
+  const registrations = []
+  const rpc = {
+    async call(_channel, endpoint, payload) {
+      rpcCalls.push({ endpoint, payload })
+      if (endpoint === 'load') {
+        return {
+          ok: true,
+          value: issueData({ items: [startIssue, continueIssue], totalCount: 2, hasMore: false, truncated: false }),
+        }
+      }
+      if (endpoint === 'cloneRepos') {
+        if (payload.issueId === 'issue-start') {
+          return { ok: true, value: { empty: true, baseDir: '/Users/tester/project', results: [] } }
+        }
+        return {
+          ok: true,
+          value: {
+            empty: false,
+            baseDir: '/Users/tester/project',
+            results: [{ name: 'app-repo', path: 'app-repo', targetDir: '/Users/tester/project/app-repo', status: 'cloned', error: '' }],
+          },
+        }
+      }
+      throw new Error(`Unexpected RPC: ${endpoint}`)
+    },
+  }
+  const createdWorkspaces = []
+  const openedWorkspaces = []
+  let workspaceOpenError = null
+  const workspaces = {
+    async create(input) {
+      createdWorkspaces.push(input)
+      return { workspaceId: `ws-${createdWorkspaces.length}`, path: input.path, title: input.path }
+    },
+  }
+  const uiWorkspace = {
+    async openWorkspace(workspaceId) {
+      openedWorkspaces.push(workspaceId)
+      if (workspaceOpenError) throw workspaceOpenError
+    },
+  }
+  plugin.apply({
+    effect(setup) { return setup() },
+    locale: { register() { return () => {} }, bind() { return key => zhDict[key] ?? key } },
+    configForms: { get: () => ({ getSnapshot: () => accountSnapshot(), subscribe: () => () => {} }) },
+    remote: { credentials: {} },
+    connection: { rpc },
+    workspaces,
+    uiWorkspace,
+    layout: { panelInfo: { getSnapshot: () => ({ activePanelId: null }) }, selectPanel() {} },
+    slots: {
+      inject(_owner, setup) { return setup() },
+      register(options, component) { registrations.push({ options, component }); return () => {} },
+    },
+  })
+
+  const main = registrations.find(item => item.options.name === 'main')
+  function findIssueWorkbench(node) {
+    if (!node || typeof node !== 'object') return null
+    if (Array.isArray(node)) {
+      for (const child of node) {
+        const found = findIssueWorkbench(child)
+        if (found) return found
+      }
+      return null
+    }
+    if (typeof node.type === 'function' && node.type.name === 'IssueWorkbench') return node
+    if (typeof node.type === 'function') return findIssueWorkbench(node.type({ ...node.props, children: node.children }))
+    return findIssueWorkbench(node.children)
+  }
+  const mainTree = React.createElement(main.component, { ...main.options.inject(), t: key => zhDict[key] ?? key })
+  const workbenchNode = findIssueWorkbench(mainTree)
+  const IssueWorkbench = workbenchNode.type
+  const workbenchProps = workbenchNode.props
+
+  function collectButtons(node, list = []) {
+    if (!node || typeof node !== 'object') return list
+    if (Array.isArray(node)) { node.forEach(child => collectButtons(child, list)); return list }
+    if (typeof node.type === 'function') {
+      if (node.type.name === 'IssueListItem') {
+        collectButtons(node.type({ ...node.props, children: node.children }), list)
+      }
+      return list
+    }
+    if (node.type === 'button' && String(node.props?.className).includes('__taskActionBtn')) {
+      list.push(node)
+    }
+    if (Array.isArray(node.children)) node.children.forEach(child => collectButtons(child, list))
+    return list
+  }
+
+  function rerender() {
+    stateIdx = 0
+    refIdx = 0
+    effectIdx = 0
+    pendingEffects = []
+    latestTree = IssueWorkbench(workbenchProps)
+    const effectsToRun = pendingEffects
+    pendingEffects = []
+    for (const item of effectsToRun) {
+      effectSlots[item.idx]?.cleanup?.()
+      effectSlots[item.idx] = { deps: item.deps, cleanup: undefined }
+      const cleanup = item.effect()
+      effectSlots[item.idx].cleanup = typeof cleanup === 'function' ? cleanup : undefined
+    }
+  }
+
+  rerender()
+  await new Promise(resolve => setTimeout(resolve, 25))
+
+  const buttons = collectButtons(latestTree)
+  assert.equal(buttons.length, 2)
+
+  buttons[0].props.onClick({ stopPropagation() {} })
+  await new Promise(resolve => setTimeout(resolve, 25))
+  assert.equal(stateSlots[3], 'issue-start')
+  assert.equal(stateSlots[6].status, 'empty')
+  assert.equal(createdWorkspaces.length, 0)
+  assert.equal(openedWorkspaces.length, 0)
+
+  buttons[1].props.onClick({ stopPropagation() {} })
+  await new Promise(resolve => setTimeout(resolve, 25))
+  assert.equal(stateSlots[3], 'issue-continue')
+  assert.equal(stateSlots[6].status, 'idle')
+  assert.deepEqual(JSON.parse(JSON.stringify(createdWorkspaces)), [
+    { path: '/Users/tester/project/app-repo' },
+  ])
+  assert.deepEqual(openedWorkspaces, ['ws-1'])
+
+  workspaceOpenError = new Error('workspace busy')
+  buttons[1].props.onClick({ stopPropagation() {} })
+  await new Promise(resolve => setTimeout(resolve, 25))
+  assert.equal(stateSlots[6].status, 'done')
+  assert.equal(stateSlots[6].results[0].path, 'app-repo')
+  assert.ok(stateSlots[6].error.includes('workspace busy'))
+
+  const cloneCalls = rpcCalls.filter(call => call.endpoint === 'cloneRepos')
+  assert.deepEqual(JSON.parse(JSON.stringify(cloneCalls.map(call => call.payload))), [
+    { accountId: 'acc-1', organizationId: 'org-1', issueId: 'issue-start' },
+    { accountId: 'acc-1', organizationId: 'org-1', issueId: 'issue-continue' },
+    { accountId: 'acc-1', organizationId: 'org-1', issueId: 'issue-continue' },
+  ])
 })

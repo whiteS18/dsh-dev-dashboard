@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "dsh-dev-dashboard",
-    "description": "Add, edit, delete, and switch GitHub, GitLab, Gitee, and Codeup accounts, and view Yunxiao requirements, tasks, and bugs assigned to or participated in by Codeup accounts. Tokens stay in credential storage."
+    "description": "Add, edit, delete, and switch GitHub, GitLab, Gitee, and Codeup accounts, and view Codeup work items and GitHub issues. Tokens stay in credential storage."
   }
 }

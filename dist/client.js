@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
 
     const zh = {
       title: 'Git 工作台',
-      subtitle: '管理 Git 账户与 Codeup 工作项',
+      subtitle: '管理 Git 账户、Codeup 工作项与 GitHub Issues',
       back: '返回对话',
       accountSelect: '选择 Git 账户',
       addAccount: '新增 Git 账户',
@@ -64,21 +64,30 @@ window.__ModuleLoader__.load({
       accountSaveError: '账户信息保存失败，请重试。',
       selectionSaveError: '当前账户选择保存失败，请重试。',
       issues: 'Codeup 工作项',
+      githubIssues: 'GitHub Issues',
       organization: '组织',
+      owner: '所有者',
+      allOwners: '全部所有者',
       project: '项目',
+      repository: '仓库',
       allProjects: '全部项目',
+      allRepositories: '全部仓库',
       refresh: '刷新',
       refreshing: '正在刷新…',
       issuesLoading: '正在读取 Codeup 工作项…',
+      githubIssuesLoading: '正在读取 GitHub Issues…',
       issueCount: '个工作项',
+      githubIssueCount: '个 Issue',
       totalPrefix: '共',
       loadedCount: '已加载',
       countingTotal: '正在统计总数…',
       noIssues: '没有匹配的工作项',
       noIssuesDescription: '可以尝试切换范围、组织或项目。',
+      noGithubIssues: '没有匹配的 Issue',
+      noGithubIssuesDescription: '可以尝试切换所有者或仓库，或在 GitHub 中创建 Issue 后刷新。',
       selectIssuePrompt: '点击左侧任务查看详细描述',
       unsupportedIssues: '该平台尚未接入 Issue 获取',
-      unsupportedDescription: '目前仅支持 Codeup（云效项目协作）的需求、任务和缺陷。',
+      unsupportedDescription: '目前支持 Codeup（云效项目协作）和 GitHub 的 Issue 获取。',
       issueUnavailable: '当前连接不可用，无法读取工作项。',
       hostNotLoaded: '工作台的后台服务尚未加载。请重启 DSH 桌面版，然后刷新页面重试。',
       retry: '重试',
@@ -94,6 +103,7 @@ window.__ModuleLoader__.load({
       typeBug: '缺陷',
       typeTask: '任务',
       typeReq: '需求',
+      typeIssue: 'Issue',
       status: '状态',
       assignedTo: '负责人',
       participants: '参与人',
@@ -103,24 +113,42 @@ window.__ModuleLoader__.load({
       labels: '标签',
       otherFields: '其他字段',
       openInCodeup: '在云效中打开',
+      openInGitHub: '在 GitHub 中打开',
       relationAssigned: '负责人',
       relationParticipant: '参与人',
       actionStart: '开始',
       actionContinue: '继续',
+      cloneModalTitleStart: '开始任务',
+      cloneModalTitleContinue: '继续任务',
+      cloneLoading: '正在查询该任务关联的仓库并依次克隆到 ~/project…',
+      cloneNoRepos: '该任务没有关联仓库，请先去关联。',
+      cloneTargetDir: '目标目录',
+      cloneStatusCloned: '克隆成功',
+      cloneStatusExists: '已存在，已跳过',
+      cloneStatusFailed: '克隆失败',
+      cloneAllSuccess: '关联仓库已准备就绪。',
+      clonePartialFailure: '部分仓库克隆失败，请检查权限或本地目录后重试。',
+      cloneError: '克隆关联仓库失败。',
+      cloneOpeningWorkspace: '正在以该仓库开启工作区…',
+      cloneWorkspaceError: '仓库已就绪，但自动开启工作区失败。',
       copyCode: '复制代码',
       copied: '已复制',
       footnotes: '注释',
       noOrganizations: '这个账户没有可用的云效组织。',
       noProjects: '这个组织下没有可用项目。',
+      noRepositories: '这个账户下没有可访问的 GitHub 仓库。',
       loadMore: '加载更多',
       loadingMore: '正在加载更多工作项…',
+      loadingMoreGithub: '正在加载更多 Issue…',
       noMoreIssues: '已加载全部工作项',
+      noMoreGithubIssues: '已加载全部 Issue',
       loadMoreError: '加载更多工作项失败。',
+      loadMoreGithubError: '加载更多 Issue 失败。',
     }
 
     const en = {
       title: 'Git workbench',
-      subtitle: 'Manage Git accounts and Codeup work items',
+      subtitle: 'Manage Git accounts, Codeup work items, and GitHub issues',
       back: 'Back to conversation',
       accountSelect: 'Select Git account',
       addAccount: 'Add Git account',
@@ -161,21 +189,30 @@ window.__ModuleLoader__.load({
       accountSaveError: 'The account details could not be saved. Try again.',
       selectionSaveError: 'The current account selection could not be saved. Try again.',
       issues: 'Codeup work items',
+      githubIssues: 'GitHub issues',
       organization: 'Organization',
+      owner: 'Owner',
+      allOwners: 'All owners',
       project: 'Project',
+      repository: 'Repository',
       allProjects: 'All projects',
+      allRepositories: 'All repositories',
       refresh: 'Refresh',
       refreshing: 'Refreshing…',
       issuesLoading: 'Loading Codeup work items…',
+      githubIssuesLoading: 'Loading GitHub issues…',
       issueCount: 'work items',
+      githubIssueCount: 'issues',
       totalPrefix: 'Total',
       loadedCount: 'Loaded',
       countingTotal: 'Counting total…',
       noIssues: 'No matching work items',
       noIssuesDescription: 'Try another scope, organization, or project.',
+      noGithubIssues: 'No matching issues',
+      noGithubIssuesDescription: 'Try switching owner or repository, or create an issue on GitHub and refresh.',
       selectIssuePrompt: 'Select a work item on the left to view its description',
       unsupportedIssues: 'Issue loading is not connected for this platform',
-      unsupportedDescription: 'Only Codeup (Yunxiao Projex) requirements, tasks, and bugs are supported now.',
+      unsupportedDescription: 'Codeup (Yunxiao Projex) work items and GitHub issues are currently supported.',
       issueUnavailable: 'The current connection cannot load work items.',
       hostNotLoaded: 'The workbench background service is not loaded. Restart DSH Desktop, then refresh the page and retry.',
       retry: 'Retry',
@@ -191,6 +228,7 @@ window.__ModuleLoader__.load({
       typeBug: 'Bug',
       typeTask: 'Task',
       typeReq: 'Requirement',
+      typeIssue: 'Issue',
       status: 'Status',
       assignedTo: 'Assignee',
       participants: 'Participants',
@@ -200,19 +238,37 @@ window.__ModuleLoader__.load({
       labels: 'Labels',
       otherFields: 'Other fields',
       openInCodeup: 'Open in Yunxiao',
+      openInGitHub: 'Open on GitHub',
       relationAssigned: 'Assigned',
       relationParticipant: 'Participating',
       actionStart: 'Start',
       actionContinue: 'Continue',
+      cloneModalTitleStart: 'Start task',
+      cloneModalTitleContinue: 'Continue task',
+      cloneLoading: 'Checking associated repositories and cloning to ~/project…',
+      cloneNoRepos: 'This task has no associated repository. Please associate one first.',
+      cloneTargetDir: 'Target directory',
+      cloneStatusCloned: 'Cloned',
+      cloneStatusExists: 'Already exists (skipped)',
+      cloneStatusFailed: 'Failed',
+      cloneAllSuccess: 'Associated repositories are ready.',
+      clonePartialFailure: 'Some repositories failed to clone. Check permissions or local directories and retry.',
+      cloneError: 'Could not clone associated repositories.',
+      cloneOpeningWorkspace: 'Opening workspace for the repository…',
+      cloneWorkspaceError: 'Repositories are ready, but opening the workspace failed.',
       copyCode: 'Copy code',
       copied: 'Copied',
       footnotes: 'Footnotes',
       noOrganizations: 'No Yunxiao organizations are available to this account.',
       noProjects: 'No projects are available in this organization.',
+      noRepositories: 'No accessible GitHub repositories were found for this account.',
       loadMore: 'Load more',
       loadingMore: 'Loading more work items…',
+      loadingMoreGithub: 'Loading more issues…',
       noMoreIssues: 'All work items loaded',
+      noMoreGithubIssues: 'All issues loaded',
       loadMoreError: 'Could not load more work items.',
+      loadMoreGithubError: 'Could not load more issues.',
     }
 
     const PLATFORMS = [
@@ -221,6 +277,8 @@ window.__ModuleLoader__.load({
       { id: 'gitee', name: 'Gitee' },
       { id: 'codeup', name: 'Codeup' },
     ]
+
+    const SUPPORTED_ISSUE_PLATFORMS = new Set(['codeup', 'github'])
 
     function platformName(id) {
       return PLATFORMS.find(platform => platform.id === id)?.name ?? id
@@ -736,6 +794,34 @@ window.__ModuleLoader__.load({
       return `https://devops.aliyun.com/projex/project/${encodeURIComponent(space)}/${YUNXIAO_CATEGORY_PATHS[type]}/${encodeURIComponent(id)}`
     }
 
+    function githubWebUrl(rawUrl) {
+      const href = safeHref(rawUrl)
+      if (!href) return ''
+      try {
+        const parsed = new URL(href)
+        const host = parsed.hostname.toLowerCase()
+        return parsed.protocol === 'https:' && (host === 'github.com' || host.endsWith('.github.com'))
+          ? parsed.href
+          : ''
+      } catch (_error) {
+        return ''
+      }
+    }
+
+    function issueExternalLink(t, platform, issue, detail) {
+      if (platform === 'github') {
+        const href = githubWebUrl(detail?.webUrl || issue?.webUrl)
+        return href ? { href, label: t('openInGitHub') } : null
+      }
+      const categoryPath = workitemCategoryKind(detail) || workitemCategoryKind(issue)
+      const href = codeupWebUrl(
+        detail?.space?.id || issue?.space?.id,
+        categoryPath,
+        detail?.id || issue?.id,
+      )
+      return href ? { href, label: t('openInCodeup') } : null
+    }
+
     function DetailRow({ label, value }) {
       return h('div', { className: `${CN}__detailRow` },
         h('dt', null, label),
@@ -743,7 +829,7 @@ window.__ModuleLoader__.load({
       )
     }
 
-    function IssueDetailPane({ t, rpc, accountId, organizationId, issue }) {
+    function IssueDetailPane({ t, rpc, platform, accountId, organizationId, issue }) {
       const [state, setState] = React.useState({ status: 'loading', detail: null, error: '' })
       const issueId = issue?.id || ''
 
@@ -778,8 +864,8 @@ window.__ModuleLoader__.load({
       const relations = Array.isArray(issue.relations) ? issue.relations : []
       const typeBadge = workitemTypeBadge(t, detail) || workitemTypeBadge(t, issue)
       const fields = state.detail?.customFieldValues ?? []
-      const categoryPath = workitemCategoryKind(detail) || workitemCategoryKind(issue)
-      const webUrl = codeupWebUrl(detail.space?.id || issue.space?.id, categoryPath, detail.id || issue.id)
+      const labels = Array.isArray(detail.labels) ? detail.labels : []
+      const externalLink = issueExternalLink(t, platform, issue, detail)
 
       return h('div', { className: `${CN}__detailScroll` },
         h('div', { className: `${CN}__detailHeader` },
@@ -790,22 +876,23 @@ window.__ModuleLoader__.load({
             relations.includes('assigned') && h('span', { className: `${CN}__issueBadge ${CN}__issueBadgeRelation` }, t('relationAssigned')),
             relations.includes('participant') && h('span', { className: `${CN}__issueBadge ${CN}__issueBadgeRelation` }, t('relationParticipant')),
           ),
-          webUrl && h('a', {
-            className: `${CN}__openLink`, href: webUrl, target: '_blank',
+          externalLink && h('a', {
+            className: `${CN}__openLink`, href: externalLink.href, target: '_blank',
             rel: 'noopener noreferrer',
-          }, t('openInCodeup'), h(ExternalIcon)),
+          }, externalLink.label, h(ExternalIcon)),
         ),
         h('h3', { className: `${CN}__detailTitle` }, detail.title || detail.subject || issue.title || issue.id),
         state.status === 'loading' && h('p', { className: `${CN}__status`, role: 'status' }, t('detailLoading')),
         state.status === 'error' && h('p', { className: `${CN}__error`, role: 'alert' }, state.error),
         state.status === 'ready' && h('div', { className: `${CN}__detailBody` },
           h('dl', { className: `${CN}__detailGrid` },
-            h(DetailRow, { label: t('project'), value: detail.space?.name || issue.space?.name }),
+            h(DetailRow, { label: platform === 'github' ? t('repository') : t('project'), value: detail.space?.name || issue.space?.name }),
             h(DetailRow, { label: t('type'), value: detail.workitemType?.name || detail.categoryId }),
             h(DetailRow, { label: t('status'), value: statusName }),
             h(DetailRow, { label: t('assignedTo'), value: detail.assignedTo?.name }),
             h(DetailRow, { label: t('participants'), value: displayNames(detail.participants) }),
             h(DetailRow, { label: t('creator'), value: detail.creator?.name }),
+            labels.length > 0 && h(DetailRow, { label: t('labels'), value: displayNames(labels) }),
             h(DetailRow, { label: t('createdAt'), value: formatDate(detail.gmtCreate) }),
             h(DetailRow, { label: t('updatedAt'), value: formatDate(detail.gmtModified) }),
           ),
@@ -826,7 +913,7 @@ window.__ModuleLoader__.load({
       )
     }
 
-    function IssueListItem({ t, issue, selected, onSelect }) {
+    function IssueListItem({ t, issue, selected, cloning, onSelect, onStartOrContinue }) {
       const statusName = issue.status?.name || issue.status?.displayName || issue.statusName || '—'
       const relations = Array.isArray(issue.relations) ? issue.relations : []
       const typeBadge = workitemTypeBadge(t, issue)
@@ -870,11 +957,91 @@ window.__ModuleLoader__.load({
           type: 'button',
           className: `${CN}__taskActionBtn ${actionKind === 'start' ? `${CN}__taskActionStart` : `${CN}__taskActionContinue`}`,
           'data-action': actionKind,
+          disabled: Boolean(cloning),
           onClick: (event) => {
             event.stopPropagation()
             onSelect()
+            onStartOrContinue?.(issue, actionKind)
           },
         }, actionKind === 'start' ? t('actionStart') : t('actionContinue')),
+      ))
+    }
+
+    function cloneResultBadge(t, status) {
+      if (status === 'cloned') return { label: t('cloneStatusCloned'), className: `${CN}__issueBadgeDone` }
+      if (status === 'exists') return { label: t('cloneStatusExists'), className: `${CN}__issueBadgeActive` }
+      return { label: t('cloneStatusFailed'), className: `${CN}__issueBadgeTypeBug` }
+    }
+
+    function TaskCloneModal({ t, platform, cloneState, onClose, onRetry }) {
+      const open = cloneState.status !== 'idle'
+      if (!open) return null
+
+      const issue = cloneState.issue || {}
+      const issueLabel = issue.serialNumber || issue.id || ''
+      const actionTitle = cloneState.actionKind === 'continue'
+        ? t('cloneModalTitleContinue')
+        : t('cloneModalTitleStart')
+      const title = issueLabel ? `${actionTitle} · ${issueLabel}` : actionTitle
+      const results = Array.isArray(cloneState.results) ? cloneState.results : []
+      const hasFailure = results.some(item => item.status === 'failed')
+      const externalLink = issueExternalLink(t, platform, issue, issue)
+
+      const footer = [
+        (cloneState.status === 'error' || (cloneState.status === 'done' && hasFailure)) && h('button', {
+          key: 'retry',
+          type: 'button',
+          className: `${CN}__button`,
+          onClick: onRetry,
+        }, t('retry')),
+        h('button', {
+          key: 'close',
+          type: 'button',
+          className: `${CN}__button ${CN}__buttonPrimary`,
+          onClick: onClose,
+        }, t('close')),
+      ].filter(Boolean)
+
+      return h(DialogModal, {
+        open: true,
+        title,
+        closeLabel: t('close'),
+        onClose,
+        footer,
+      },
+      h('div', { className: `${CN}__cloneModalBody` },
+        (issue.title || issue.subject) && h('p', { className: `${CN}__cloneIssueTitle` }, issue.title || issue.subject),
+        cloneState.status === 'loading' && h('p', { className: `${CN}__status`, role: 'status' }, t('cloneLoading')),
+        cloneState.status === 'opening-workspace' && h('p', { className: `${CN}__status`, role: 'status' }, t('cloneOpeningWorkspace')),
+        cloneState.status === 'empty' && h('div', { className: `${CN}__cloneEmpty`, role: 'alert' },
+          h('p', { className: `${CN}__warning` }, t('cloneNoRepos')),
+          externalLink && h('a', {
+            className: `${CN}__openLink`,
+            href: externalLink.href,
+            target: '_blank',
+            rel: 'noopener noreferrer',
+          }, externalLink.label, h(ExternalIcon)),
+        ),
+        cloneState.status === 'error' && h('p', { className: `${CN}__error`, role: 'alert' }, cloneState.error),
+        cloneState.status === 'done' && h('div', { className: `${CN}__cloneDone` },
+          cloneState.baseDir && h('p', { className: `${CN}__hint` }, `${t('cloneTargetDir')}：${cloneState.baseDir}`),
+          h('p', {
+            className: hasFailure ? `${CN}__warning` : `${CN}__cloneSummary`,
+            role: 'status',
+          }, hasFailure ? t('clonePartialFailure') : t('cloneAllSuccess')),
+          cloneState.error && h('p', { className: `${CN}__error`, role: 'alert' }, cloneState.error),
+          h('ul', { className: `${CN}__cloneList` }, results.map((item, idx) => {
+            const badge = cloneResultBadge(t, item.status)
+            return h('li', { key: `${item.targetDir || item.name}-${idx}`, className: `${CN}__cloneItem` },
+              h('div', { className: `${CN}__cloneItemTop` },
+                h('span', { className: `${CN}__cloneRepoName` }, item.name || item.path),
+                h('span', { className: `${CN}__issueBadge ${badge.className}`.trim() }, badge.label),
+              ),
+              item.targetDir && h('div', { className: `${CN}__clonePath` }, item.targetDir),
+              item.error && h('div', { className: `${CN}__cloneItemError` }, item.error),
+            )
+          })),
+        ),
       ))
     }
 
@@ -899,25 +1066,26 @@ window.__ModuleLoader__.load({
       return [...byId.values()]
     }
 
-    function formatTotalSummary(t, { loadedCount, hasMore, totalCount, countStatus, countTruncated }) {
+    function formatTotalSummary(t, { loadedCount, hasMore, totalCount, countStatus, countTruncated, unitLabel }) {
+      const unit = unitLabel || t('issueCount')
       const plus = countTruncated ? '+' : ''
       if (typeof totalCount === 'number' && Number.isFinite(totalCount)) {
         const displayTotal = Math.max(totalCount, loadedCount)
         if (hasMore && loadedCount < displayTotal) {
-          return `${t('totalPrefix')} ${displayTotal}${plus} ${t('issueCount')}（${t('loadedCount')} ${loadedCount}）`
+          return `${t('totalPrefix')} ${displayTotal}${plus} ${unit}（${t('loadedCount')} ${loadedCount}）`
         }
-        return `${t('totalPrefix')} ${displayTotal}${plus} ${t('issueCount')}`
+        return `${t('totalPrefix')} ${displayTotal}${plus} ${unit}`
       }
       if (!hasMore) {
-        return `${t('totalPrefix')} ${loadedCount} ${t('issueCount')}`
+        return `${t('totalPrefix')} ${loadedCount} ${unit}`
       }
       if (countStatus === 'loading') {
-        return `${t('loadedCount')} ${loadedCount} ${t('issueCount')} · ${t('countingTotal')}`
+        return `${t('loadedCount')} ${loadedCount} ${unit} · ${t('countingTotal')}`
       }
-      return `${t('loadedCount')} ${loadedCount}+ ${t('issueCount')}`
+      return `${t('loadedCount')} ${loadedCount}+ ${unit}`
     }
 
-    function IssueWorkbench({ t, rpc, account, accountTools }) {
+    function IssueWorkbench({ t, rpc, workspaces, uiWorkspace, account, accountTools }) {
       const [organizationId, setOrganizationId] = React.useState('')
       const [projectId, setProjectId] = React.useState('all')
       const [reload, setReload] = React.useState(0)
@@ -934,12 +1102,23 @@ window.__ModuleLoader__.load({
         total: null,
         truncated: false,
       })
+      const [cloneState, setCloneState] = React.useState({
+        status: 'idle',
+        issue: null,
+        actionKind: 'start',
+        baseDir: '',
+        results: [],
+        error: '',
+      })
       const sentinelRef = React.useRef(null)
       const loadMoreControllerRef = React.useRef(null)
       const countControllerRef = React.useRef(null)
+      const cloneControllerRef = React.useRef(null)
       const loadingMoreRef = React.useRef(false)
       const queryKeyRef = React.useRef('')
-      const canLoad = account.platform === 'codeup' && Boolean(rpc)
+      const isGitHub = account.platform === 'github'
+      const isSupportedPlatform = SUPPORTED_ISSUE_PLATFORMS.has(account.platform)
+      const canLoad = isSupportedPlatform && Boolean(rpc)
 
       React.useEffect(() => {
         if (!canLoad) return
@@ -1029,7 +1208,7 @@ window.__ModuleLoader__.load({
       const projects = data?.projects ?? []
       const items = data?.items ?? []
       const hasMore = Boolean(data?.hasMore && data?.nextCursor)
-      const selectedOrganizationId = organizationId || data?.selectedOrganizationId || ''
+      const selectedOrganizationId = organizationId || data?.selectedOrganizationId || (isGitHub ? 'all' : '')
       const selectedProjectId = projectId || data?.selectedProjectId || 'all'
       const activeIssue = items.find(item => item.id === selectedIssueId) ?? items[0] ?? null
       const effectiveTotalCount = !hasMore
@@ -1093,7 +1272,7 @@ window.__ModuleLoader__.load({
           if (loadMoreControllerRef.current === controller) loadMoreControllerRef.current = null
           const message = error?.code === 'host-not-loaded'
             ? t('hostNotLoaded')
-            : (error.message || t('loadMoreError'))
+            : (error.message || (isGitHub ? t('loadMoreGithubError') : t('loadMoreError')))
           setState(previous => ({ ...previous, loadingMore: false, loadMoreError: message }))
         })
       }, [canLoad, state.status, state.data, rpc, account.id, selectedOrganizationId, selectedProjectId, t])
@@ -1144,7 +1323,147 @@ window.__ModuleLoader__.load({
         }
       }, [hasMore, loading, loadingMore, loadMoreError, loadMore])
 
-      if (account.platform !== 'codeup') {
+      const startCloneRepos = React.useCallback((issue, actionKind = 'start') => {
+        if (!canLoad || !issue?.id) return
+        const orgId = issue.organizationId || data?.selectedOrganizationId || selectedOrganizationId
+        cloneControllerRef.current?.abort()
+        const controller = new AbortController()
+        cloneControllerRef.current = controller
+        setCloneState({
+          status: 'loading',
+          issue,
+          actionKind,
+          baseDir: '',
+          results: [],
+          error: '',
+        })
+        void callRpc(rpc, 'cloneRepos', {
+          accountId: account.id,
+          organizationId: orgId,
+          issueId: issue.id,
+        }, controller.signal).then(async (result) => {
+          if (controller.signal.aborted) return
+          const results = Array.isArray(result?.results) ? result.results : []
+          if (result?.empty || results.length === 0) {
+            if (cloneControllerRef.current === controller) cloneControllerRef.current = null
+            setCloneState({
+              status: 'empty',
+              issue,
+              actionKind,
+              baseDir: result?.baseDir || '',
+              results: [],
+              error: '',
+            })
+            return
+          }
+
+          const readyRepos = results.filter(
+            item => (item.status === 'cloned' || item.status === 'exists') && item.targetDir,
+          )
+          const hasFailure = results.some(item => item.status === 'failed')
+          const canOpenWorkspace = Boolean(
+            !hasFailure
+            && readyRepos.length > 0
+            && workspaces
+            && typeof workspaces.create === 'function'
+            && uiWorkspace
+            && typeof uiWorkspace.openWorkspace === 'function',
+          )
+
+          if (canOpenWorkspace) {
+            setCloneState({
+              status: 'opening-workspace',
+              issue,
+              actionKind,
+              baseDir: result?.baseDir || '',
+              results,
+              error: '',
+            })
+            try {
+              let primaryWorkspace = null
+              for (const repo of readyRepos) {
+                if (controller.signal.aborted) return
+                const created = await workspaces.create({ path: repo.targetDir })
+                if (!primaryWorkspace && created?.workspaceId) {
+                  primaryWorkspace = created
+                }
+              }
+              if (controller.signal.aborted) return
+              if (primaryWorkspace?.workspaceId) {
+                await uiWorkspace.openWorkspace(primaryWorkspace.workspaceId)
+              }
+              if (controller.signal.aborted) return
+              if (cloneControllerRef.current === controller) cloneControllerRef.current = null
+              setCloneState({
+                status: 'idle',
+                issue: null,
+                actionKind: 'start',
+                baseDir: '',
+                results: [],
+                error: '',
+              })
+              return
+            } catch (workspaceError) {
+              if (controller.signal.aborted) return
+              if (cloneControllerRef.current === controller) cloneControllerRef.current = null
+              const detailMsg = workspaceError instanceof Error ? workspaceError.message : String(workspaceError || '')
+              setCloneState({
+                status: 'done',
+                issue,
+                actionKind,
+                baseDir: result?.baseDir || '',
+                results,
+                error: `${t('cloneWorkspaceError')} ${detailMsg}`.trim(),
+              })
+              return
+            }
+          }
+
+          if (cloneControllerRef.current === controller) cloneControllerRef.current = null
+          setCloneState({
+            status: 'done',
+            issue,
+            actionKind,
+            baseDir: result?.baseDir || '',
+            results,
+            error: '',
+          })
+        }).catch((error) => {
+          if (controller.signal.aborted) return
+          if (cloneControllerRef.current === controller) cloneControllerRef.current = null
+          const message = error?.code === 'host-not-loaded'
+            ? t('hostNotLoaded')
+            : (error.message || t('cloneError'))
+          setCloneState({
+            status: 'error',
+            issue,
+            actionKind,
+            baseDir: '',
+            results: [],
+            error: message,
+          })
+        })
+      }, [canLoad, data?.selectedOrganizationId, selectedOrganizationId, rpc, workspaces, uiWorkspace, account.id, t])
+
+      const closeCloneModal = React.useCallback(() => {
+        cloneControllerRef.current?.abort()
+        cloneControllerRef.current = null
+        setCloneState({
+          status: 'idle',
+          issue: null,
+          actionKind: 'start',
+          baseDir: '',
+          results: [],
+          error: '',
+        })
+      }, [])
+
+      React.useEffect(() => () => {
+        cloneControllerRef.current?.abort()
+        cloneControllerRef.current = null
+      }, [])
+
+      if (!isSupportedPlatform) {
         return h('section', { className: `${CN}__issues` },
           accountTools && h('div', { className: `${CN}__issueToolbar` },
             h('div', { className: `${CN}__issueToolbarLeft` }, accountTools),
@@ -1164,9 +1483,14 @@ window.__ModuleLoader__.load({
         )
       }
 
-      const orgOptions = organizations.map(item => ({ value: item.id, label: item.name }))
+      const orgOptions = isGitHub
+        ? [
+            { value: 'all', label: t('allOwners') },
+            ...organizations.map(item => ({ value: item.id, label: item.name })),
+          ]
+        : organizations.map(item => ({ value: item.id, label: item.name }))
       const projectOptions = [
-        { value: 'all', label: t('allProjects') },
+        { value: 'all', label: isGitHub ? t('allRepositories') : t('allProjects') },
         ...projects.map(item => ({ value: item.id, label: item.name })),
       ]
       const summaryText = formatTotalSummary(t, {
@@ -1175,9 +1499,10 @@ window.__ModuleLoader__.load({
         totalCount: effectiveTotalCount,
         countStatus: countState.status,
         countTruncated: countState.truncated || Boolean(data?.truncated),
+        unitLabel: isGitHub ? t('githubIssueCount') : t('issueCount'),
       })
 
-      return h('section', { className: `${CN}__issues`, 'aria-label': t('issues'), 'aria-busy': loading || loadingMore },
+      return h('section', { className: `${CN}__issues`, 'aria-label': isGitHub ? t('githubIssues') : t('issues'), 'aria-busy': loading || loadingMore },
         h('div', { className: `${CN}__issueToolbar` },
           h('div', { className: `${CN}__issueToolbarLeft` }, accountTools),
           h('div', { className: `${CN}__issueToolbarRight` },
@@ -1185,9 +1510,9 @@ window.__ModuleLoader__.load({
               className: `${CN}__filterSelect`,
               value: selectedOrganizationId,
               options: orgOptions,
-              disabled: loading || orgOptions.length === 0,
-              ariaLabel: t('organization'),
-              placeholder: t('organization'),
+              disabled: loading || orgOptions.length === 0 || (isGitHub && organizations.length === 0),
+              ariaLabel: isGitHub ? t('owner') : t('organization'),
+              placeholder: isGitHub ? t('allOwners') : t('organization'),
               onChange: nextOrg => { setOrganizationId(nextOrg); setProjectId('all') },
             }),
             data && h(NativeSelect, {
@@ -1195,8 +1520,8 @@ window.__ModuleLoader__.load({
               value: selectedProjectId,
               options: projectOptions,
               disabled: loading || projects.length === 0,
-              ariaLabel: t('project'),
-              placeholder: t('allProjects'),
+              ariaLabel: isGitHub ? t('repository') : t('project'),
+              placeholder: isGitHub ? t('allRepositories') : t('allProjects'),
               onChange: nextProject => setProjectId(nextProject),
             }),
             h('button', {
@@ -1205,17 +1530,22 @@ window.__ModuleLoader__.load({
             }, h(RefreshIcon), loading ? t('refreshing') : t('refresh')),
           ),
         ),
-        loading && h('p', { className: `${CN}__status`, role: 'status' }, t('issuesLoading')),
+        loading && h('p', { className: `${CN}__status`, role: 'status' }, isGitHub ? t('githubIssuesLoading') : t('issuesLoading')),
         state.status === 'error' && h('div', { className: `${CN}__issueError`, role: 'alert' },
           h('p', { className: `${CN}__error` }, state.error),
           h('button', { type: 'button', className: `${CN}__button`, onClick: () => setReload(value => value + 1) }, t('retry')),
         ),
-        data && !loading && organizations.length === 0 && h('p', { className: `${CN}__status` }, t('noOrganizations')),
-        data && !loading && organizations.length > 0 && projects.length === 0 && h('p', { className: `${CN}__status` }, t('noProjects')),
+        !isGitHub && data && !loading && organizations.length === 0 && h('p', { className: `${CN}__status` }, t('noOrganizations')),
+        !isGitHub && data && !loading && organizations.length > 0 && projects.length === 0 && h('p', { className: `${CN}__status` }, t('noProjects')),
+        isGitHub && data && !loading && items.length === 0 && projects.length === 0 && h('p', { className: `${CN}__status` }, t('noRepositories')),
         (data?.truncated || countState.truncated) && h('p', { className: `${CN}__warning`, role: 'status' }, t('truncated')),
-        data && !loading && items.length === 0 && organizations.length > 0 && projects.length > 0 && h('div', { className: `${CN}__issueEmpty` },
+        !isGitHub && data && !loading && items.length === 0 && organizations.length > 0 && projects.length > 0 && h('div', { className: `${CN}__issueEmpty` },
           h('h3', null, t('noIssues')),
           h('p', null, t('noIssuesDescription')),
+        ),
+        isGitHub && data && !loading && items.length === 0 && projects.length > 0 && h('div', { className: `${CN}__issueEmpty` },
+          h('h3', null, t('noGithubIssues')),
+          h('p', null, t('noGithubIssuesDescription')),
         ),
         items.length > 0 && h('div', { className: `${CN}__split` },
           h('div', { className: `${CN}__listPane` },
@@ -1229,14 +1559,17 @@ window.__ModuleLoader__.load({
                   t,
                   issue,
                   selected: activeIssue?.id === issue.id,
+                  cloning: (cloneState.status === 'loading' || cloneState.status === 'opening-workspace')
+                    && cloneState.issue?.id === issue.id,
                   onSelect: () => setSelectedIssueId(issue.id),
+                  onStartOrContinue: startCloneRepos,
                 })),
               !loading && hasMore && h('div', {
                 ref: sentinelRef, className: `${CN}__loadMoreSentinel`, 'aria-hidden': true,
               }),
               !loading && loadingMore && h('p', {
                 className: `${CN}__status ${CN}__loadMoreStatus`, role: 'status',
-              }, t('loadingMore')),
+              }, isGitHub ? t('loadingMoreGithub') : t('loadingMore')),
               !loading && !loadingMore && loadMoreError && h('div', {
                 className: `${CN}__issueError ${CN}__loadMoreError`, role: 'alert',
               },
@@ -1247,19 +1580,27 @@ window.__ModuleLoader__.load({
               }, h('button', { type: 'button', className: `${CN}__button`, onClick: loadMore }, t('loadMore'))),
               !loading && !loadingMore && !loadMoreError && !hasMore && h('p', {
                 className: `${CN}__loadMoreEnd`,
-              }, t('noMoreIssues')),
+              }, isGitHub ? t('noMoreGithubIssues') : t('noMoreIssues')),
             ),
           ),
           h('div', { className: `${CN}__detailPane` },
             h(IssueDetailPane, {
               t,
               rpc,
+              platform: account.platform,
               accountId: account.id,
               organizationId: activeIssue?.organizationId || data?.selectedOrganizationId || selectedOrganizationId,
               issue: activeIssue,
             }),
           ),
         ),
+        h(TaskCloneModal, {
+          t,
+          platform: account.platform,
+          cloneState,
+          onClose: closeCloneModal,
+          onRetry: () => startCloneRepos(cloneState.issue, cloneState.actionKind),
+        }),
       )
     }
 
@@ -1364,7 +1705,7 @@ window.__ModuleLoader__.load({
       )
     }
 
-    function GitWorkbenchPage({ t, form, credentials, rpc }) {
+    function GitWorkbenchPage({ t, form, credentials, rpc, workspaces, uiWorkspace }) {
       const subscribe = React.useCallback(listener => form.subscribe(listener), [form])
       const getSnapshot = React.useCallback(() => form.getSnapshot(), [form])
       const snapshot = React.useSyncExternalStore(subscribe, getSnapshot)
@@ -1650,7 +1991,7 @@ window.__ModuleLoader__.load({
             }, h(EditIcon), t('manageAccounts')),
           ),
           snapshot.status === 'ready' && selected
-            && h(IssueWorkbench, { key: selected.id, t, rpc, account: selected, accountTools }),
+            && h(IssueWorkbench, { key: selected.id, t, rpc, workspaces, uiWorkspace, account: selected, accountTools }),
         ),
         h(DialogModal, {
           open: isModalOpen,
@@ -1762,6 +2103,18 @@ window.__ModuleLoader__.load({
 .${CN}__taskActionStart:hover{opacity:.9}
 .${CN}__taskActionContinue{border:0.5px solid var(--dsw-alias-state-business-primary);background:transparent;color:var(--dsw-alias-state-business-primary)}
 .${CN}__taskActionContinue:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.${CN}__taskActionBtn:disabled{opacity:.5;cursor:not-allowed}
+.${CN}__cloneModalBody{display:flex;flex-direction:column;gap:12px}
+.${CN}__cloneIssueTitle{margin:0;color:var(--dsw-alias-label-primary);font-size:14px;line-height:20px;font-weight:600;overflow-wrap:anywhere}
+.${CN}__cloneEmpty{display:flex;flex-direction:column;align-items:flex-start;gap:10px}
+.${CN}__cloneDone{display:flex;flex-direction:column;gap:10px}
+.${CN}__cloneSummary{margin:0;color:var(--dsw-alias-state-success-primary);font-size:13px;font-weight:500}
+.${CN}__cloneList{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.${CN}__cloneItem{padding:10px 12px;border:0.5px solid var(--dsw-alias-border-l3);border-radius:10px;background:var(--dsw-alias-bg-layer-1);display:flex;flex-direction:column;gap:4px}
+.${CN}__cloneItemTop{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.${CN}__cloneRepoName{color:var(--dsw-alias-label-primary);font-size:13px;font-weight:500;overflow-wrap:anywhere}
+.${CN}__clonePath{color:var(--dsw-alias-label-secondary);font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;overflow-wrap:anywhere}
+.${CN}__cloneItemError{color:var(--dsw-alias-state-error-primary);font-size:12px;overflow-wrap:anywhere}
 .${CN}__detailScroll{flex:1;min-height:0;overflow-y:auto;padding:18px 22px}
 .${CN}__detailEmpty{flex:1;display:flex;align-items:center;justify-content:center;padding:32px;color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));font-size:13px}
 .${CN}__detailHeader{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;margin-bottom:8px}
@@ -1830,18 +2183,30 @@ window.__ModuleLoader__.load({
 `
 
     return {
-      inject: ['slots', 'layout', 'locale', 'configForms', 'remote', 'remote.credentials', 'connection'],
+      inject: [
+        'slots', 'layout', 'locale', 'configForms', 'remote', 'remote.credentials',
+        'connection', 'workspaces', 'uiWorkspace',
+      ],
       apply(ctx) {
         ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'git-workbench: dictionaries')
         const t = ctx.locale.bind(NS)
         const form = ctx.configForms.get(ENTRY_ID)
         const credentials = ctx.remote.credentials
         const rpc = ctx.connection?.rpc ?? null
+        const workspaces = ctx.workspaces ?? null
+        const uiWorkspace = ctx.uiWorkspace ?? null
 
         ctx.slots.inject('main', () => {
           const dispose = ctx.slots.register({
             name: 'main', key: PANEL_ID, locale: NS,
-            inject: () => ({ form, credentials, rpc, onClose: () => { ctx.layout.selectPanel(null) } }),
+            inject: () => ({
+              form,
+              credentials,
+              rpc,
+              workspaces,
+              uiWorkspace,
+              onClose: () => { ctx.layout.selectPanel(null) },
+            }),
           }, GitWorkbenchPage)
           return () => {
             dispose()

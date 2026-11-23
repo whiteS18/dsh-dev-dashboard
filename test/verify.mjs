@@ -41,7 +41,10 @@ const plugin = definition.factory((name) => {
   if (name === '@deepseek-ai/dsh-client-ui-primitives') return {}
   throw new Error(`Unexpected require: ${name}`)
 })
-assert.equal(JSON.stringify(plugin.inject), JSON.stringify(['slots', 'layout', 'locale', 'configForms', 'remote', 'remote.credentials', 'connection']))
+assert.equal(
+  JSON.stringify(plugin.inject),
+  JSON.stringify(['slots', 'layout', 'locale', 'configForms', 'remote', 'remote.credentials', 'connection', 'workspaces', 'uiWorkspace']),
+)
 const registrations = []
 const injected = []
 const cleanups = new Map()

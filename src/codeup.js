@@ -259,6 +259,257 @@ function httpError(statusCode) {
   return new CodeupError('http-error', `云效请求失败（HTTP ${statusCode || '未知'}）。`, { status: statusCode || 0 })
 }
 
+function extractRecordArray(data) {
+  if (Array.isArray(data)) return data
+  if (data && typeof data === 'object') {
+    for (const key of ['result', 'records', 'items', 'data']) {
+      if (Array.isArray(data[key])) return data[key]
+    }
+  }
+  return []
+}
+
+function isGitCloneUrl(value) {
+  if (typeof value !== 'string') return false
+  const trimmed = value.trim()
+  if (!trimmed || /[\s\r\n\0]/.test(trimmed) || trimmed.startsWith('-')) return false
+  if (/^(https?|ssh):\/\/.+/i.test(trimmed)) {
+    try {
+      const parsed = new URL(trimmed)
+      return Boolean(parsed.hostname)
+    } catch {
+      return false
+    }
+  }
+  return /^[A-Za-z0-9._-]+@[A-Za-z0-9._-]+:[^\s]+$/.test(trimmed)
+}
+
+function isSshGitUrl(value) {
+  const trimmed = asString(value).trim()
+  return isGitCloneUrl(trimmed) && (/^ssh:\/\//i.test(trimmed) || /^[A-Za-z0-9._-]+@/.test(trimmed))
+}
+
+function isHttpGitUrl(value) {
+  const trimmed = asString(value).trim()
+  return isGitCloneUrl(trimmed) && /^https?:\/\//i.test(trimmed)
+}
+
+function normalizeCodeupHttpUrl(rawUrl) {
+  const trimmed = asString(rawUrl).trim()
+  if (!isHttpGitUrl(trimmed)) return ''
+  try {
+    const parsed = new URL(trimmed)
+    if (!/codeup\.aliyun\.com$/i.test(parsed.hostname)) return trimmed
+    const repoPath = extractCodeupRepoPathFromUrl(trimmed)
+    return repoPath ? `${parsed.origin}/${repoPath}.git` : ''
+  } catch {
+    return ''
+  }
+}
+
+function extractCodeupRepoPathFromUrl(rawUrl) {
+  const trimmed = asString(rawUrl).trim()
+  if (!trimmed || /[\s\r\n\0]/.test(trimmed)) return ''
+  const scpMatch = /^git@codeup\.aliyun\.com:(.+?)(?:\.git)?\/?$/i.exec(trimmed)
+  if (scpMatch) {
+    const segments = scpMatch[1].split('/').filter(Boolean)
+    return segments.length >= 2 ? segments.join('/') : ''
+  }
+  if (!/^https?:\/\//i.test(trimmed)) return ''
+  let parsed
+  try {
+    parsed = new URL(trimmed)
+  } catch {
+    return ''
+  }
+  if (!/codeup\.aliyun\.com$/i.test(parsed.hostname)) return ''
+  const rawSegments = parsed.pathname.split('/').filter(Boolean)
+  const stopTokens = new Set(['tree', 'blob', 'commit', 'commits', 'merge_request', 'merge_requests', 'pulls', 'branches', '-'])
+  const segments = []
+  for (const segment of rawSegments) {
+    if (stopTokens.has(segment)) break
+    segments.push(segment)
+  }
+  if (segments.length === 0) return ''
+  segments[segments.length - 1] = segments[segments.length - 1].replace(/\.git$/i, '')
+  if (segments.length < 2 || segments.some(s => !s || s === '.' || s === '..')) return ''
+  return segments.join('/')
+}
+
+function sanitizeRepoDirName(value) {
+  const raw = asString(value).trim().replace(/\.git$/i, '')
+  if (!raw || raw === '.' || raw === '..') return ''
+  if (/[\\/\0\r\n]/.test(raw) || raw.startsWith('-')) return ''
+  return raw
+}
+
+function dirNameFromUrl(rawUrl) {
+  const trimmed = asString(rawUrl).trim()
+  if (!trimmed) return ''
+  const scpMatch = /^[A-Za-z0-9._-]+@[A-Za-z0-9._-]+:(.+)$/.exec(trimmed)
+  if (scpMatch) {
+    const last = scpMatch[1].split('/').filter(Boolean).pop()
+    return sanitizeRepoDirName(last)
+  }
+  try {
+    const parsed = new URL(trimmed)
+    const last = parsed.pathname.split('/').filter(Boolean).pop()
+    return sanitizeRepoDirName(last)
+  } catch {
+    return ''
+  }
+}
+
+function splitFieldTokens(text) {
+  const raw = asString(text).trim()
+  if (!raw) return []
+  return raw.split(/[\r\n,;，；]+/).map(item => item.trim()).filter(Boolean)
+}
+
+function normalizeCandidateToken(token, fallbackName = '') {
+  const value = asString(token).trim()
+  if (!value) return null
+  if (/^\d+$/.test(value)) {
+    return { repoId: value, repoPath: '', url: '', name: asString(fallbackName).trim() }
+  }
+  if (isGitCloneUrl(value) || /^https?:\/\//i.test(value)) {
+    const repoPath = extractCodeupRepoPathFromUrl(value)
+    return { repoId: '', repoPath, url: value, name: asString(fallbackName).trim() }
+  }
+  const pathSegments = value.split('/').filter(Boolean)
+  if (pathSegments.length >= 2 && !/\s/.test(value) && !pathSegments.some(s => s === '.' || s === '..')) {
+    return { repoId: '', repoPath: pathSegments.join('/').replace(/\.git$/i, ''), url: '', name: asString(fallbackName).trim() }
+  }
+  return { repoId: '', repoPath: '', url: '', name: value }
+}
+
+function collectWorkitemRepoCandidates(rawWorkitem, extRecords) {
+  const candidates = []
+
+  for (const record of extRecords) {
+    if (!record || typeof record !== 'object') continue
+    const category = asString(record.category).trim().toLowerCase()
+    const url = asString(record.url || record.extResourceUrl).trim()
+    const repoId = asString(record.projectId || record.repositoryId || record.repoId).trim()
+    const name = asString(record.projectName || record.repositoryName || record.repoName).trim()
+    if (category === 'changerequest' && !repoId && !extractCodeupRepoPathFromUrl(url)) continue
+    if (!repoId && !url) continue
+    candidates.push({
+      repoId,
+      repoPath: extractCodeupRepoPathFromUrl(url),
+      url,
+      name,
+    })
+  }
+
+  for (const fieldKey of ['repositories', 'relatedRepositories', 'associatedCodes', 'associatedCodeSources']) {
+    const list = rawWorkitem?.[fieldKey]
+    if (!Array.isArray(list)) continue
+    for (const entry of list) {
+      if (typeof entry === 'string' || typeof entry === 'number') {
+        const candidate = normalizeCandidateToken(asString(entry))
+        if (candidate) candidates.push(candidate)
+      } else if (entry && typeof entry === 'object') {
+        const repoId = asString(entry.id || entry.repositoryId || entry.projectId || entry.repoId).trim()
+        const url = asString(entry.httpUrlToRepo || entry.httpUrlToRepository || entry.sshUrlToRepo || entry.webUrl || entry.url).trim()
+        const repoPath = asString(entry.pathWithNamespace).trim() || extractCodeupRepoPathFromUrl(url)
+        const name = asString(entry.path || entry.name).trim()
+        if (repoId || repoPath || url || name) {
+          candidates.push({ repoId, repoPath, url, name, directRepo: entry })
+        }
+      }
+    }
+  }
+
+  const fields = Array.isArray(rawWorkitem?.customFieldValues) ? rawWorkitem.customFieldValues : []
+  for (const field of fields) {
+    if (!field || typeof field !== 'object') continue
+    const fieldName = asString(field.fieldName)
+    const fieldId = asString(field.fieldId)
+    if (!/(仓库|代码库|repositor|git\s*repo)/i.test(fieldName) && !/(repo|codeup)/i.test(fieldId)) continue
+    const values = Array.isArray(field.values) ? field.values : []
+    for (const entry of values) {
+      if (typeof entry === 'string' || typeof entry === 'number') {
+        for (const token of splitFieldTokens(asString(entry))) {
+          const candidate = normalizeCandidateToken(token)
+          if (candidate) candidates.push(candidate)
+        }
+        continue
+      }
+      if (!entry || typeof entry !== 'object') continue
+      const identifier = asString(entry.identifier).trim()
+      const displayValue = asString(entry.displayValue).trim()
+      if (identifier && (/^\d+$/.test(identifier) || identifier.includes('/') || isGitCloneUrl(identifier))) {
+        const candidate = normalizeCandidateToken(identifier, displayValue)
+        if (candidate) candidates.push(candidate)
+      } else if (displayValue) {
+        for (const token of splitFieldTokens(displayValue)) {
+          const candidate = normalizeCandidateToken(token)
+          if (candidate) candidates.push(candidate)
+        }
+      } else if (identifier) {
+        const candidate = normalizeCandidateToken(identifier)
+        if (candidate) candidates.push(candidate)
+      }
+    }
+  }
+
+  return candidates
+}
+
+function normalizeRepository(rawRepo, fallbackUrl = '') {
+  if (!rawRepo || typeof rawRepo !== 'object') {
+    const httpUrl = normalizeCodeupHttpUrl(fallbackUrl)
+    const sshUrl = isSshGitUrl(fallbackUrl) ? asString(fallbackUrl).trim() : ''
+    const cloneUrl = httpUrl || sshUrl
+    const path = dirNameFromUrl(cloneUrl || fallbackUrl)
+    if (!cloneUrl || !path) return null
+    return {
+      id: '',
+      name: path,
+      path,
+      pathWithNamespace: extractCodeupRepoPathFromUrl(fallbackUrl),
+      httpUrl,
+      sshUrl,
+      webUrl: /^https?:\/\//i.test(fallbackUrl) ? asString(fallbackUrl).trim() : '',
+    }
+  }
+
+  const pathWithNamespace = asString(rawRepo.pathWithNamespace).trim()
+  const webUrl = asString(rawRepo.webUrl).trim()
+  let httpUrl = asString(rawRepo.httpUrlToRepo).trim() || asString(rawRepo.httpUrlToRepository).trim()
+  if (!httpUrl && webUrl) {
+    const normalizedWeb = normalizeCodeupHttpUrl(webUrl)
+    if (normalizedWeb) httpUrl = normalizedWeb
+  }
+  if (!httpUrl && pathWithNamespace) {
+    httpUrl = `https://codeup.aliyun.com/${pathWithNamespace.replace(/^\/+|\/+$/g, '')}.git`
+  }
+  if (!httpUrl && fallbackUrl) {
+    httpUrl = normalizeCodeupHttpUrl(fallbackUrl)
+  }
+
+  const sshUrl = asString(rawRepo.sshUrlToRepo).trim()
+    || asString(rawRepo.sshUrlToRepository).trim()
+    || (isSshGitUrl(fallbackUrl) ? asString(fallbackUrl).trim() : '')
+
+  const path = sanitizeRepoDirName(rawRepo.path)
+    || sanitizeRepoDirName(pathWithNamespace.split('/').pop())
+    || dirNameFromUrl(httpUrl || sshUrl || webUrl || fallbackUrl)
+    || sanitizeRepoDirName(rawRepo.name)
+
+  if ((!httpUrl && !sshUrl) || !path) return null
+  return {
+    id: asString(rawRepo.id).trim(),
+    name: asString(rawRepo.name).trim() || path,
+    path,
+    pathWithNamespace,
+    httpUrl,
+    sshUrl,
+    webUrl,
+  }
+}
+
 export function createCodeupApi(fetchImpl = globalThis.fetch) {
   if (typeof fetchImpl !== 'function') {
     throw new CodeupError('fetch-unavailable', '当前环境不支持云效 HTTP 请求。')
@@ -679,5 +930,149 @@ export function createCodeupApi(fetchImpl = globalThis.fetch) {
     return normalizeWorkitem(objectBody(result))
   }
 
-  return { load, count, detail }
+  async function fetchExtRelationRecords(accessToken, org, issue, signal) {
+    const basePath = `/oapi/v1/projex/organizations/${org}/workitems/${issue}/extRelationRecords`
+    try {
+      const result = await request(accessToken, basePath, { signal })
+      return extractRecordArray(result.data)
+    } catch (error) {
+      if (error instanceof CodeupError && error.code === 'not-found') return []
+      if (!(error instanceof CodeupError && error.details?.status === 400)) throw error
+    }
+
+    const categories = ['codeupBranch', 'codeupCommit', 'codeupMergeRequest', 'codeupRepository']
+    const settled = await Promise.all(categories.map(async (category) => {
+      try {
+        const result = await request(accessToken, `${basePath}?category=${encodeURIComponent(category)}`, { signal })
+        return extractRecordArray(result.data)
+      } catch (error) {
+        if (error instanceof CodeupError && (error.code === 'not-found' || error.details?.status === 400)) {
+          return []
+        }
+        throw error
+      }
+    }))
+    return settled.flat()
+  }
+
+  async function fetchRepositoryByIdOrPath(accessToken, org, idOrPath, signal) {
+    const encoded = encodeURIComponent(idOrPath)
+    const result = await request(
+      accessToken,
+      `/oapi/v1/codeup/organizations/${org}/repositories/${encoded}`,
+      { signal },
+    )
+    return objectBody(result)
+  }
+
+  async function resolveCandidateRepository(accessToken, org, candidate, cache, signal) {
+    if (candidate.directRepo) {
+      const direct = normalizeRepository(candidate.directRepo, candidate.url)
+      if (direct) return direct
+    }
+
+    const lookupKeys = [candidate.repoId, candidate.repoPath].filter(Boolean)
+    for (const key of lookupKeys) {
+      if (cache.has(key)) {
+        const cached = cache.get(key)
+        if (cached) return cached
+        continue
+      }
+      try {
+        const rawRepo = await fetchRepositoryByIdOrPath(accessToken, org, key, signal)
+        const normalized = normalizeRepository(rawRepo, candidate.url)
+        cache.set(key, normalized)
+        if (normalized) return normalized
+      } catch (error) {
+        if (error instanceof CodeupError && (error.code === 'not-found' || error.details?.status === 400)) {
+          cache.set(key, null)
+          continue
+        }
+        if (error instanceof CodeupError && error.code === 'permission-denied') {
+          const fallback = normalizeRepository(null, candidate.url)
+          if (fallback) return fallback
+          throw error
+        }
+        throw error
+      }
+    }
+
+    if (candidate.url) {
+      const fallback = normalizeRepository(null, candidate.url)
+      if (fallback) return fallback
+    }
+
+    if (candidate.name) {
+      const searchKey = `search:${candidate.name}`
+      if (cache.has(searchKey)) return cache.get(searchKey)
+      try {
+        const result = await request(
+          accessToken,
+          `/oapi/v1/codeup/organizations/${org}/repositories?search=${encodeURIComponent(candidate.name)}&perPage=100`,
+          { signal },
+        )
+        const rows = extractRecordArray(result.data)
+        const target = candidate.name.toLowerCase()
+        const exact = rows.find(row =>
+          asString(row?.pathWithNamespace).trim().toLowerCase() === target
+          || asString(row?.path).trim().toLowerCase() === target
+          || asString(row?.name).trim().toLowerCase() === target)
+        const normalized = exact ? normalizeRepository(exact) : null
+        cache.set(searchKey, normalized)
+        return normalized
+      } catch (error) {
+        if (error instanceof CodeupError && error.code === 'not-found') {
+          cache.set(searchKey, null)
+          return null
+        }
+        throw error
+      }
+    }
+
+    return null
+  }
+
+  function repositoryDedupeKeys(repo) {
+    const keys = []
+    if (repo.id) keys.push(`id:${repo.id}`)
+    if (repo.pathWithNamespace) keys.push(`ns:${repo.pathWithNamespace.toLowerCase()}`)
+    if (repo.httpUrl) keys.push(`http:${repo.httpUrl.replace(/\.git$/i, '').toLowerCase()}`)
+    if (repo.sshUrl) keys.push(`ssh:${repo.sshUrl.replace(/\.git$/i, '').toLowerCase()}`)
+    return keys
+  }
+
+  async function repositories({ token, organizationId, issueId, signal } = {}) {
+    const accessToken = cleanToken(token)
+    const org = encodeURIComponent(required(organizationId, 'organizationId'))
+    const issue = encodeURIComponent(required(issueId, 'issueId'))
+
+    const [userResult, workitemResult, extRecords] = await Promise.all([
+      request(accessToken, '/oapi/v1/platform/user', { signal }),
+      request(accessToken, `/oapi/v1/projex/organizations/${org}/workitems/${issue}`, { signal }),
+      fetchExtRelationRecords(accessToken, org, issue, signal),
+    ])
+
+    const user = normalizeUser(objectBody(userResult))
+    const rawWorkitem = objectBody(workitemResult)
+    const candidates = collectWorkitemRepoCandidates(rawWorkitem, extRecords)
+    if (candidates.length === 0) {
+      return { user, repositories: [] }
+    }
+
+    const cache = new Map()
+    const seenKeys = new Set()
+    const resolved = []
+    for (const candidate of candidates) {
+      const repo = await resolveCandidateRepository(accessToken, org, candidate, cache, signal)
+      if (!repo) continue
+      const keys = repositoryDedupeKeys(repo)
+      if (keys.some(key => seenKeys.has(key))) continue
+      for (const key of keys) seenKeys.add(key)
+      resolved.push(repo)
+    }
+
+    return { user, repositories: resolved }
+  }
+
+  return { load, count, detail, repositories }
 }

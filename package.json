@@ -2,7 +2,7 @@
   "name": "dsh-dev-dashboard",
   "version": "1.4.0",
   "private": true,
-  "description": "A Git account workbench with Codeup issue lists, scope filters, and details, backed by local credential-store tokens.",
+  "description": "A Git account workbench with Codeup work items and GitHub issues, filters, details, and repository cloning, backed by local credential-store tokens.",
   "type": "module",
   "exports": {
     ".": "./dist/index.js",
@@ -14,6 +14,8 @@
   "files": [
     "dist/index.js",
     "dist/codeup.js",
+    "dist/github.js",
+    "dist/clone.js",
     "dist/issue-rpc.js",
     "dist/client.js",
     "cordis.patch.yml",
@@ -23,7 +25,7 @@
   ],
   "scripts": {
     "build": "node ./build.mjs",
-    "check": "node --check ./dist/index.js && node --check ./dist/codeup.js && node --check ./dist/issue-rpc.js && node --check ./dist/client.js && node ./test/codeup.test.mjs && node ./test/host.test.mjs && node ./test/render.test.mjs && node ./test/verify.mjs"
+    "check": "node --check ./dist/index.js && node --check ./dist/codeup.js && node --check ./dist/github.js && node --check ./dist/clone.js && node --check ./dist/issue-rpc.js && node --check ./dist/client.js && node ./test/codeup.test.mjs && node ./test/github.test.mjs && node ./test/clone.test.mjs && node ./test/host.test.mjs && node ./test/render.test.mjs && node ./test/verify.mjs"
   },
   "peerDependencies": {
     "@deepseek-ai/schemastery": "^3.18.1"
@@ -37,12 +39,14 @@
       "immediately": true,
       "inject": [
         "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-api-workspace-controller",
         "@deepseek-ai/dsh-client-connection",
         "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-client-ui-layout",
         "@deepseek-ai/dsh-client-ui-primitives",
         "@deepseek-ai/dsh-client-ui-settings",
-        "@deepseek-ai/dsh-client-ui-sidebar"
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-workspace"
       ]
     }
   }

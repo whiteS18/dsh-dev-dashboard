@@ -501,3 +501,93 @@ test('count scans all selected projects and pages to compute exact matched total
   assert.equal(singleProject.assigned, 0)
   assert.equal(singleProject.participant, 12)
 })
+
+test('repositories resolves and deduplicates task-linked repositories from extRelationRecords and custom fields', async () => {
+  const { fetchImpl } = mockFetch((call) => {
+    const path = pathname(call)
+    if (path === '/oapi/v1/platform/user') {
+      return response({ id: USER_ID, name: 'Test user', username: 'git-tester', lastOrganization: ORG_ID })
+    }
+    if (path === `/oapi/v1/projex/organizations/${ORG_ID}/workitems/issue-1`) {
+      return response({
+        ...workitem('issue-1'),
+        customFieldValues: [{
+          fieldId: 'cf-repo',
+          fieldName: '关联仓库',
+          fieldFormat: 'text',
+          values: [{ identifier: '', displayValue: 'https://codeup.aliyun.com/org-1/group/web-app.git' }],
+        }],
+      })
+    }
+    if (path === `/oapi/v1/projex/organizations/${ORG_ID}/workitems/issue-1/extRelationRecords`) {
+      return response([
+        { id: 'rel-1', category: 'codeupBranch', projectId: '101', url: 'https://codeup.aliyun.com/org-1/backend/tree/feat-1' },
+        { id: 'rel-2', category: 'codeupCommit', projectId: '101', url: 'https://codeup.aliyun.com/org-1/backend/commit/abc' },
+        { id: 'rel-3', category: 'ChangeRequest', changeRequestId: 'cr-1', url: 'https://flow.aliyun.com/cr/1' },
+      ])
+    }
+    if (path === `/oapi/v1/codeup/organizations/${ORG_ID}/repositories/101`) {
+      return response({
+        id: 101,
+        name: 'backend',
+        path: 'backend',
+        pathWithNamespace: 'org-1/backend',
+        httpUrlToRepository: 'https://codeup.aliyun.com/org-1/backend.git',
+        sshUrlToRepo: 'git@codeup.aliyun.com:org-1/backend.git',
+        webUrl: 'https://codeup.aliyun.com/org-1/backend',
+      })
+    }
+    if (path === `/oapi/v1/codeup/organizations/${ORG_ID}/repositories/${encodeURIComponent('org-1/group/web-app')}`) {
+      return response({
+        id: 202,
+        name: 'web-app',
+        path: 'web-app',
+        pathWithNamespace: 'org-1/group/web-app',
+        httpUrlToRepo: 'https://codeup.aliyun.com/org-1/group/web-app.git',
+        sshUrlToRepo: 'git@codeup.aliyun.com:org-1/group/web-app.git',
+      })
+    }
+    throw new Error(`Unexpected request: ${call.url}`)
+  })
+
+  const result = await createCodeupApi(fetchImpl).repositories({
+    token: TOKEN,
+    organizationId: ORG_ID,
+    issueId: 'issue-1',
+  })
+  assert.equal(result.user.username, 'git-tester')
+  assert.deepEqual(result.repositories.map(item => ({ id: item.id, path: item.path, httpUrl: item.httpUrl })), [
+    { id: '101', path: 'backend', httpUrl: 'https://codeup.aliyun.com/org-1/backend.git' },
+    { id: '202', path: 'web-app', httpUrl: 'https://codeup.aliyun.com/org-1/group/web-app.git' },
+  ])
+})
+
+test('repositories falls back to per-category extRelationRecords on 400 and returns empty when unlinked', async () => {
+  const seenUrls = []
+  const { fetchImpl } = mockFetch((call) => {
+    seenUrls.push(call.url)
+    const parsed = new URL(call.url)
+    if (parsed.pathname === '/oapi/v1/platform/user') {
+      return response({ id: USER_ID, name: 'Test user', username: 'git-tester' })
+    }
+    if (parsed.pathname === `/oapi/v1/projex/organizations/${ORG_ID}/workitems/issue-empty`) {
+      return response(workitem('issue-empty'))
+    }
+    if (parsed.pathname === `/oapi/v1/projex/organizations/${ORG_ID}/workitems/issue-empty/extRelationRecords`) {
+      if (!parsed.searchParams.get('category')) {
+        return response({ error: 'category required' }, { status: 400 })
+      }
+      return response([])
+    }
+    throw new Error(`Unexpected request: ${call.url}`)
+  })
+
+  const result = await createCodeupApi(fetchImpl).repositories({
+    token: TOKEN,
+    organizationId: ORG_ID,
+    issueId: 'issue-empty',
+  })
+  assert.deepEqual(result.repositories, [])
+  assert.ok(seenUrls.some(url => url.includes('category=codeupBranch')))
+  assert.ok(seenUrls.some(url => url.includes('category=codeupMergeRequest')))
+})

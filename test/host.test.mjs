@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { CodeupError } from '../src/codeup.js'
+import { GitHubError } from '../src/github.js'
 import { apply as applyPlugin } from '../src/index.js'
 import { registerIssueRpc, RPC_CHANNEL } from '../src/issue-rpc.js'
 
@@ -48,7 +49,15 @@ function exchange(handler, { endpoint = 'load', payload = {}, method = 'POST', m
   })
 }
 
-function setup({ config = { accounts: [ACCOUNT] }, token = TOKEN, api, credentialsAvailable = true, connectionAvailable = true, webServerAvailable = true } = {}) {
+function setup({
+  config = { accounts: [ACCOUNT] },
+  token = TOKEN,
+  api,
+  cloneService,
+  credentialsAvailable = true,
+  connectionAvailable = true,
+  webServerAvailable = true,
+} = {}) {
   const injections = []
   const effects = []
   const routes = []
@@ -76,7 +85,7 @@ function setup({ config = { accounts: [ACCOUNT] }, token = TOKEN, api, credentia
       callback({ get, effect(setupEffect) { effects.push(setupEffect()); return () => {} } })
     },
   }
-  registerIssueRpc(ctx, config, api)
+  registerIssueRpc(ctx, config, api, cloneService)
   assert.deepEqual(injections, [['connection', 'webServer']])
   assert.equal(effects.length, 1)
   assert.equal(routes.length, 1)
@@ -130,8 +139,8 @@ test('detail validates IDs and returns the normalized detail result', async () =
   assert.equal(JSON.stringify(result).includes(TOKEN), false)
 })
 
-test('rejects unknown, non-Codeup, malformed, and missing-token requests', async () => {
-  const otherAccount = { ...ACCOUNT, platform: 'github' }
+test('rejects unknown, unsupported-platform, malformed, and missing-token requests', async () => {
+  const otherAccount = { ...ACCOUNT, platform: 'gitlab' }
   const forbidden = setup({
     config: { accounts: [otherAccount] },
     api: { load() { throw new Error('must not load') }, detail() { throw new Error('must not load detail') } },
@@ -315,4 +324,127 @@ test('apply hides the auto-generated settings form and registers issue RPC', () 
   applyPlugin(ctx, {})
   assert.deepEqual(configured, [{ presentation: { auto: false }, owner: fiber }])
   assert.deepEqual(injections, [['settings'], ['connection', 'webServer']])
+})
+
+test('cloneRepos resolves task repositories, clones sequentially, and handles empty repositories', async () => {
+  let receivedRepoQuery
+  let receivedCloneInput
+  const { call } = setup({
+    api: {
+      async load() { return {} },
+      async detail() { return {} },
+      async repositories(input) {
+        receivedRepoQuery = input
+        if (input.issueId === 'issue-empty') {
+          return { user: { username: 'git-user' }, repositories: [] }
+        }
+        return {
+          user: { username: 'git-user' },
+          repositories: [
+            { id: '1', name: 'repo-a', path: 'repo-a', httpUrl: 'https://codeup.aliyun.com/org/repo-a.git' },
+            { id: '2', name: 'repo-b', path: 'repo-b', httpUrl: 'https://codeup.aliyun.com/org/repo-b.git' },
+          ],
+        }
+      },
+    },
+    cloneService: {
+      baseDir: () => '/Users/tester/project',
+      async cloneRepositories(input) {
+        receivedCloneInput = input
+        return {
+          baseDir: '/Users/tester/project',
+          empty: false,
+          results: input.repositories.map(repo => ({
+            name: repo.name,
+            path: repo.path,
+            targetDir: `/Users/tester/project/${repo.path}`,
+            cloneUrl: repo.httpUrl,
+            status: 'cloned',
+            error: '',
+          })),
+        }
+      },
+    },
+  })
+
+  const emptyResult = await call('cloneRepos', { accountId: ACCOUNT.id, organizationId: 'org-1', issueId: 'issue-empty' })
+  assert.equal(emptyResult.ok, true)
+  assert.equal(emptyResult.value.empty, true)
+  assert.deepEqual(emptyResult.value.results, [])
+  assert.equal(receivedCloneInput, undefined)
+
+  const clonedResult = await call('cloneRepos', { accountId: ACCOUNT.id, organizationId: 'org-1', issueId: 'issue-1' })
+  assert.equal(clonedResult.ok, true)
+  assert.equal(receivedRepoQuery.token, TOKEN)
+  assert.equal(receivedCloneInput.token, TOKEN)
+  assert.equal(receivedCloneInput.username, 'git-user')
+  assert.equal(clonedResult.value.results.length, 2)
+  assert.equal(JSON.stringify(clonedResult).includes(TOKEN), false)
+})
+
+test('routes GitHub accounts to the GitHub API for load, detail, cloneRepos, and redacts GitHubError tokens', async () => {
+  const ghAccount = { id: 'gh-account-1', platform: 'github', username: 'octocat' }
+  let receivedLoad
+  let receivedDetail
+  let receivedClone
+  const { call, resolvedRefs } = setup({
+    config: { accounts: [ghAccount] },
+    token: 'ghp-secret-host-token',
+    api: {
+      codeup: {
+        async load() { throw new Error('must not call codeup for github account') },
+      },
+      github: {
+        async load(input) {
+          receivedLoad = input
+          return { items: [{ id: 'octocat/demo#1', title: 'GH Issue' }] }
+        },
+        async detail(input) {
+          receivedDetail = input
+          if (input.issueId === 'octocat/demo#403') {
+            throw new GitHubError('permission-denied', 'Denied ghp-secret-host-token', { status: 403 })
+          }
+          return { id: input.issueId, title: 'GH Detail' }
+        },
+        async repositories(input) {
+          return {
+            user: { username: 'octocat' },
+            repositories: [{ id: '1', name: 'demo', path: 'demo', httpUrl: 'https://github.com/octocat/demo.git' }],
+          }
+        },
+      },
+    },
+    cloneService: {
+      baseDir: () => '/Users/tester/project',
+      async cloneRepositories(input) {
+        receivedClone = input
+        return {
+          baseDir: '/Users/tester/project',
+          empty: false,
+          results: [{ name: 'demo', path: 'demo', targetDir: '/Users/tester/project/demo', status: 'cloned', error: '' }],
+        }
+      },
+    },
+  })
+
+  const loadRes = await call('load', { accountId: ghAccount.id, cursor: { projectIndex: 0, page: 2, offset: 0, anchorId: 'octocat/demo#1', mode: 'repos' } })
+  assert.equal(loadRes.ok, true)
+  assert.deepEqual(resolvedRefs, ['DSH_GIT_WORKBENCH_GH_ACCOUNT_1'])
+  assert.equal(receivedLoad.cursor.mode, 'repos')
+
+  // GitHub detail does not require organizationId
+  const detailRes = await call('detail', { accountId: ghAccount.id, issueId: 'octocat/demo#1' })
+  assert.equal(detailRes.ok, true)
+  assert.equal(receivedDetail.issueId, 'octocat/demo#1')
+
+  const errorRes = await call('detail', { accountId: ghAccount.id, issueId: 'octocat/demo#403' })
+  assert.equal(errorRes.ok, false)
+  assert.equal(errorRes.error.code, 'permission-denied')
+  assert.deepEqual(errorRes.error.details, { status: 403 })
+  assert.equal(errorRes.error.message.includes('ghp-secret-host-token'), false)
+
+  const cloneRes = await call('cloneRepos', { accountId: ghAccount.id, issueId: 'octocat/demo#1' })
+  assert.equal(cloneRes.ok, true)
+  assert.equal(receivedClone.platform, 'github')
+  assert.equal(receivedClone.username, 'octocat')
 })
