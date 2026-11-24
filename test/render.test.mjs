@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import vm from 'node:vm'
 
 const zhDict = {
-  title: 'Git 工作台', subtitle: '管理 Git 账户与 Codeup 工作项', back: '返回对话',
+  title: 'Git 工作台', back: '返回对话',
   accountSelect: '选择 Git 账户', addAccount: '新增 Git 账户',
   manageAccounts: '管理账户', accountListTitle: '管理 Git 账户',
   accountListEmpty: '当前没有已配置的 Git 账户。', currentAccount: '当前',
@@ -1713,7 +1713,7 @@ test('view mode dropdown includes 查看 PR below 查看任务 and 查看仓库,
 
   for (const expected of [
     'Support PR viewer', '#12', '开放中', '草稿', '存在冲突',
-    'feat/prs', 'main', 'octocat/demo-app', 'reviewer1',
+    'feat/prs', 'main', 'demo-app', 'reviewer1',
     '+120 / -15 · 6 个文件', '共 1 个 PR', '在 GitHub 中打开',
     'Summary', 'Add PR list and details',
   ]) {
@@ -2014,4 +2014,11 @@ test('clicking Start on an open PR clones its repository, opens workspace, and l
     organizationId: 'octocat',
     repositoryId: 'octocat/demo-app',
   })
+})
+
+test('FilterableSelect option buttons disable flex shrinking inside scrollable flex column', () => {
+  const optionRuleMatch = source.match(/\.\$\{CN\}__selectOption\{([^}]*)\}/)
+  assert.ok(optionRuleMatch, 'expected selectOption CSS rule')
+  const declarations = optionRuleMatch[1]
+  assert.match(declarations, /(?:^|;)flex:none(?:;|$)|(?:^|;)flex-shrink:0(?:;|$)/)
 })

@@ -23,7 +23,6 @@ window.__ModuleLoader__.load({
 
     const zh = {
       title: 'Git 工作台',
-      subtitle: '管理 Git 账户、Codeup 工作项与 GitHub Issues',
       back: '返回对话',
       accountSelect: '选择 Git 账户',
       addAccount: '新增 Git 账户',
@@ -237,7 +236,6 @@ window.__ModuleLoader__.load({
 
     const en = {
       title: 'Git workbench',
-      subtitle: 'Manage Git accounts, Codeup work items, and GitHub issues',
       back: 'Back to conversation',
       accountSelect: 'Select Git account',
       addAccount: 'Add Git account',
@@ -649,6 +647,108 @@ window.__ModuleLoader__.load({
     }
 
     /**
+     * Dropdown with a built-in search box for long option lists. Uses the same
+     * trigger styling as NativeSelect but renders its own popup so options can
+     * be filtered by label.
+     */
+    function FilterableSelect({
+      id,
+      value,
+      options,
+      onChange,
+      disabled = false,
+      ariaLabel,
+      placeholder = '',
+      className = '',
+      searchPlaceholder = '',
+      emptyText = '',
+    }) {
+      const [open, setOpen] = React.useState(false)
+      const [query, setQuery] = React.useState('')
+      const list = Array.isArray(options) ? options : []
+      const selected = optionId(value)
+      const current = list.find(item => optionId(item.value ?? item.id) === selected)
+      const displayLabel = current?.label ?? placeholder
+      const isDisabled = disabled || list.length === 0
+      const normalizedQuery = query.trim().toLowerCase()
+      const filtered = normalizedQuery
+        ? list.filter(item => String(item.label ?? '').toLowerCase().includes(normalizedQuery))
+        : list
+
+      const pick = React.useCallback((item) => {
+        const next = optionId(item.value ?? item.id)
+        setOpen(false)
+        if (next !== selected) onChange(next)
+      }, [onChange, selected])
+
+      React.useEffect(() => {
+        if (!open) return
+        const onKeyDown = (event) => {
+          if (event.key === 'Escape') {
+            event.stopPropagation()
+            setOpen(false)
+          }
+        }
+        window.addEventListener('keydown', onKeyDown, true)
+        return () => window.removeEventListener('keydown', onKeyDown, true)
+      }, [open])
+
+      return h('div', { className: `${CN}__filterable` },
+        h('button', {
+          type: 'button',
+          id,
+          role: 'combobox',
+          className: `${CN}__selectTrigger ${open && !isDisabled ? 'is-open' : ''} ${className}`.trim(),
+          disabled: isDisabled,
+          'aria-haspopup': 'listbox',
+          'aria-expanded': open && !isDisabled,
+          'aria-label': ariaLabel,
+          title: displayLabel || ariaLabel || '',
+          onClick: () => {
+            if (isDisabled) return
+            setQuery('')
+            setOpen(prev => !prev)
+          },
+        },
+          h('span', { className: `${CN}__selectLabel` }, displayLabel),
+          h(ChevronDownIcon, { open: open && !isDisabled })),
+        open && !isDisabled && h('div', { className: `${CN}__selectBackdrop`, onClick: () => setOpen(false) }),
+        open && !isDisabled && h('div', { className: `${CN}__selectPanel`, role: 'listbox', 'aria-label': ariaLabel },
+          h('input', {
+            type: 'search',
+            className: `${CN}__selectSearch`,
+            value: query,
+            placeholder: searchPlaceholder,
+            'aria-label': searchPlaceholder || ariaLabel,
+            autoFocus: true,
+            onChange: event => setQuery(event.target.value),
+            onKeyDown: (event) => {
+              if (event.key === 'Enter' && filtered.length === 1) {
+                event.preventDefault()
+                pick(filtered[0])
+              }
+            },
+          }),
+          h('div', { className: `${CN}__selectOptions` },
+            filtered.length === 0 && h('div', { className: `${CN}__selectEmpty` }, emptyText),
+            filtered.map(item => {
+              const itemValue = optionId(item.value ?? item.id)
+              const isSelected = itemValue === selected
+              return h('button', {
+                key: itemValue,
+                type: 'button',
+                role: 'option',
+                'aria-selected': isSelected,
+                className: `${CN}__selectOption${isSelected ? ' is-selected' : ''}`,
+                onClick: () => pick(item),
+              }, item.label)
+            }),
+          ),
+        ),
+      )
+    }
+
+    /**
      * Pure Modal backed by DSH native `primitives.Modal`, with an accessible
      * dialog overlay fallback when primitives are unavailable.
      */
@@ -745,6 +845,14 @@ window.__ModuleLoader__.load({
       if (!Array.isArray(value) || value.length === 0) return '—'
       const names = value.map(item => typeof item === 'string' ? item : item?.name).filter(Boolean)
       return names.length > 0 ? names.join('、') : '—'
+    }
+
+    function shortRepoName(value) {
+      if (typeof value !== 'string') return value
+      const trimmed = value.trim()
+      if (!trimmed) return value
+      const parts = trimmed.split('/')
+      return parts.length > 1 ? parts[parts.length - 1] : trimmed
     }
 
     function displayFieldValue(field) {
@@ -2796,7 +2904,7 @@ window.__ModuleLoader__.load({
             h('span', { className: `${CN}__prBranch` }, pr.targetBranch || '—'),
           ),
           h('div', { className: `${CN}__issueMeta` },
-            h('span', null, pr.repositoryName || '—'),
+            h('span', null, shortRepoName(pr.repositoryName) || '—'),
             pr.author?.name && h('span', null, pr.author.name),
             h('span', null, formatDate(pr.gmtModified)),
           ),
@@ -2967,7 +3075,7 @@ window.__ModuleLoader__.load({
         state.status === 'error' && h('p', { className: `${CN}__error`, role: 'alert' }, state.error),
         h('div', { className: `${CN}__detailBody` },
           h('dl', { className: `${CN}__detailGrid` },
-            h(DetailRow, { label: t('repository'), value: detail.repositoryName || pr.repositoryName }),
+            h(DetailRow, { label: t('repository'), value: shortRepoName(detail.repositoryName || pr.repositoryName) }),
             h(DetailRow, { label: t('status'), value: stateBadge.label }),
             h(DetailRow, { label: t('prAuthor'), value: detail.author?.name }),
             h(DetailRow, { label: t('prReviewers'), value: displayNames(detail.reviewers) }),
@@ -3417,7 +3525,7 @@ window.__ModuleLoader__.load({
         : organizations.map(item => ({ value: item.id, label: item.name }))
       const repoOptions = [
         { value: 'all', label: t('allRepositories') },
-        ...repositories.map(item => ({ value: item.id, label: item.name })),
+        ...repositories.map(item => ({ value: item.id, label: shortRepoName(item.name) })),
       ]
       const stateOptions = [
         { value: 'all', label: t('prStateAll') },
@@ -3451,13 +3559,15 @@ window.__ModuleLoader__.load({
             placeholder: isGitHub ? t('allOwners') : t('organization'),
             onChange: nextOrg => { setOrganizationId(nextOrg); setRepositoryId('all') },
           }),
-          data && h(NativeSelect, {
+          data && h(FilterableSelect, {
             className: `${CN}__filterSelect`,
             value: selectedRepositoryId,
             options: repoOptions,
             disabled: loading || repositories.length === 0,
             ariaLabel: t('repository'),
             placeholder: t('allRepositories'),
+            searchPlaceholder: t('repoSearchPlaceholder'),
+            emptyText: t('noRepos'),
             onChange: nextRepo => setRepositoryId(nextRepo),
           }),
           h(NativeSelect, {
@@ -3904,7 +4014,6 @@ window.__ModuleLoader__.load({
       const header = h('header', { className: `${CN}__header` },
         h('div', { className: `${CN}__heading` },
           h('h1', null, t('title')),
-          h('p', null, t('subtitle')),
         ),
       )
 
@@ -4007,7 +4116,6 @@ window.__ModuleLoader__.load({
 .${CN}__header{flex:none;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 16px;margin-bottom:16px}
 .${CN}__heading{min-width:0}
 .${CN}__heading h1{margin:0;font-size:24px;line-height:32px;font-weight:600;letter-spacing:-.4px}
-.${CN}__heading p{margin:4px 0 0;color:var(--dsw-alias-label-secondary);font-size:13px;line-height:20px}
 .${CN}__accountTools{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
 .${CN}__selectTrigger{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:space-between;gap:8px;height:32px;max-width:100%;padding:0 10px 0 12px;border:0.5px solid var(--dsw-alias-border-l2,var(--dsw-alias-border-l3));border-radius:8px;background:var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-base));color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;line-height:20px;cursor:pointer;transition:background-color .15s ease,border-color .15s ease}
 .${CN}__selectTrigger:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);border-color:var(--dsw-alias-border-l3)}
@@ -4017,6 +4125,18 @@ window.__ModuleLoader__.load({
 .${CN}__selectChevron{flex:none;color:var(--dsw-alias-label-tertiary);transition:transform .15s ease}
 .${CN}__selectChevron.is-open{transform:rotate(180deg)}
 .${CN}__selectMenu{max-height:320px;overflow-y:auto}
+.${CN}__filterable{position:relative;display:inline-flex;min-width:0;max-width:100%}
+.${CN}__filterable>.${CN}__selectTrigger{flex:1;min-width:0}
+.${CN}__selectBackdrop{position:fixed;inset:0;z-index:90}
+.${CN}__selectPanel{position:absolute;top:calc(100% + 4px);left:0;z-index:100;box-sizing:border-box;display:flex;flex-direction:column;min-width:100%;width:max-content;max-width:min(360px,80vw);padding:6px;border:0.5px solid var(--dsw-alias-border-l2,var(--dsw-alias-border-l3));border-radius:10px;background:var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-base));box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.${CN}__selectSearch{box-sizing:border-box;flex:none;width:100%;height:28px;margin-bottom:4px;padding:0 8px;border:0.5px solid var(--dsw-alias-border-l2,var(--dsw-alias-border-l3));border-radius:6px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px}
+.${CN}__selectSearch::placeholder{color:var(--dsw-alias-label-caption)}
+.${CN}__selectSearch:focus{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}
+.${CN}__selectOptions{max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:1px}
+.${CN}__selectOption{display:block;flex:none;box-sizing:border-box;width:100%;padding:6px 10px;border:0;border-radius:6px;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;line-height:20px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.${CN}__selectOption:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.${CN}__selectOption.is-selected{color:var(--dsw-alias-state-business-primary);font-weight:600}
+.${CN}__selectEmpty{padding:8px 10px;color:var(--dsw-alias-label-caption);font-size:13px}
 .${CN}__selectFallback{box-sizing:border-box;height:32px;padding:0 26px 0 10px;border:0.5px solid var(--dsw-alias-border-l3);border-radius:8px;background:var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-base));color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;cursor:pointer}
 .${CN}__selectFallback:disabled{opacity:.5;cursor:not-allowed}
 .${CN}__accountSelect{min-width:140px;max-width:240px}

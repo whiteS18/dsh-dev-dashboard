@@ -1,3 +1,9 @@
 node_modules/
 *.log
 .DS_Store
+nul
+con
+aux
+prn
+com[0-9]
+lpt[0-9]

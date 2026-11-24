@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<title>repro: filterable select row collapse</title>
+<style>
+  :root { --dsw-alias-bg-base:#fff; --dsw-alias-bg-layer-1:#fff; --dsw-alias-label-primary:#0f1115; --dsw-alias-label-secondary:#666; --dsw-alias-label-caption:#999; --dsw-alias-border-l2:#e5e5e5; --dsw-alias-border-l3:#ddd; --dsw-alias-interactive-bg-hover:#f2f3f5; --dsw-alias-state-business-primary:#3b82f6; }
+  body { margin:0; font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif; color:#0f1115; background:#fafafa; }
+  .page{box-sizing:border-box;width:100%;height:100vh;display:flex;flex-direction:column;overflow:hidden;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font-size:14px;line-height:1.5}
+  .toolbar{display:flex;align-items:center;gap:8px;padding:16px}
+  .selectTrigger{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:space-between;gap:8px;height:32px;max-width:100%;padding:0 10px 0 12px;border:0.5px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;line-height:20px;cursor:pointer}
+  .selectLabel{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+  .filterable{position:relative;display:inline-flex;min-width:0;max-width:100%}
+  .filterable>.selectTrigger{flex:1;min-width:0}
+  .selectPanel{position:absolute;top:calc(100% + 4px);left:0;z-index:100;box-sizing:border-box;display:flex;flex-direction:column;min-width:100%;width:max-content;max-width:min(360px,80vw);padding:6px;border:0.5px solid var(--dsw-alias-border-l2);border-radius:10px;background:var(--dsw-alias-bg-layer-1);box-shadow:0 8px 24px rgba(0,0,0,.18)}
+  .selectSearch{box-sizing:border-box;flex:none;width:100%;height:28px;margin-bottom:4px;padding:0 8px;border:0.5px solid var(--dsw-alias-border-l2);border-radius:6px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px}
+  .selectOptions{max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:1px}
+  .selectOption{display:block;box-sizing:border-box;width:100%;padding:6px 10px;border:0;border-radius:6px;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;line-height:20px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+  .selectOption:hover{background:var(--dsw-alias-interactive-bg-hover)}
+  .fixed .selectOption{flex:none}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="toolbar">
+    <div class="filterable" style="width:220px" id="host">
+      <button type="button" class="selectTrigger"><span class="selectLabel">全部仓库</span></button>
+      <div class="selectPanel">
+        <input type="search" class="selectSearch" placeholder="搜索仓库…" />
+        <div class="selectOptions" id="opts"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  const names = ['hs-member-backend','hs-member-front-end','hs-pda-android','hs-pos-android','hdbs-thor-stormbreaker','hdbs-red-skull','hdbs-steve-rogers','hdbs-ego','hdbs-ele-evo','hs-member-backend-jobs','hs-member-front-end-sdk','pay-center','point-mall','portrait-pc','travelsky-adapter','cbshop','cbshop-front','ele-data-prepare','ele-wiki','member','member-api'];
+  const opts = document.getElementById('opts');
+  for (const n of names) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'selectOption';
+    b.textContent = n;
+    opts.appendChild(b);
+  }
+  const q = new URLSearchParams(location.search);
+  if (q.get('fixed') === '1') document.getElementById('host').classList.add('fixed');
+</script>
+</body>
+</html>
