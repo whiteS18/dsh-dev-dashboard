@@ -546,3 +546,78 @@ test('listRepos and cloneRepo forward bounded params and clone a single reposito
   assert.equal(ghClone.value.results[0].targetDir, '/Users/tester/project/demo')
   assert.equal(JSON.stringify(ghClone).includes(TOKEN), false)
 })
+
+test('listPrs and prDetail forward bounded params for both Codeup and GitHub accounts', async () => {
+  const ghAccount = { id: 'gh-pr-acc', platform: 'github', username: 'octocat' }
+  let receivedList
+  let receivedDetail
+  const { call } = setup({
+    config: { accounts: [ACCOUNT, ghAccount] },
+    api: {
+      codeup: {
+        async listPullRequests(input) {
+          receivedList = input
+          return {
+            selectedOrganizationId: 'org-1',
+            organizations: [{ id: 'org-1', name: 'Org 1' }],
+            repositories: [{ id: '101', name: 'org-1/backend' }],
+            items: [{ id: '101#7', title: 'MR 7', state: 'open' }],
+            totalCount: 1,
+            page: 1,
+            hasMore: false,
+            nextPage: null,
+          }
+        },
+        async pullRequestDetail(input) {
+          receivedDetail = input
+          return { id: input.pullRequestId, title: 'MR 7', description: 'Codeup MR detail' }
+        },
+      },
+      github: {
+        async listPullRequests(input) {
+          receivedList = input
+          return {
+            selectedOrganizationId: 'all',
+            organizations: [{ id: 'octocat', name: 'octocat' }],
+            repositories: [{ id: 'octocat/demo', name: 'octocat/demo' }],
+            items: [{ id: 'octocat/demo#12', title: 'PR 12', state: 'open' }],
+            totalCount: 1,
+            page: 1,
+            hasMore: false,
+            nextPage: null,
+          }
+        },
+        async pullRequestDetail(input) {
+          receivedDetail = input
+          return { id: input.pullRequestId, title: 'PR 12', description: 'GitHub PR detail' }
+        },
+      },
+    },
+  })
+
+  const cuList = await call('listPrs', { accountId: ACCOUNT.id, organizationId: 'org-1', repositoryId: '101', state: 'open', search: 'fix' })
+  assert.equal(cuList.ok, true)
+  assert.equal(receivedList.token, TOKEN)
+  assert.equal(receivedList.state, 'open')
+  assert.equal(receivedList.repositoryId, '101')
+  assert.equal(cuList.value.items[0].id, '101#7')
+
+  // Codeup prDetail requires organizationId
+  const missingOrg = await call('prDetail', { accountId: ACCOUNT.id, pullRequestId: '101#7' })
+  assert.equal(missingOrg.ok, false)
+  assert.equal(missingOrg.error.code, 'bad-request')
+
+  const cuDetail = await call('prDetail', { accountId: ACCOUNT.id, organizationId: 'org-1', pullRequestId: '101#7' })
+  assert.equal(cuDetail.ok, true)
+  assert.equal(receivedDetail.pullRequestId, '101#7')
+
+  // GitHub prDetail does not require organizationId
+  const ghList = await call('listPrs', { accountId: ghAccount.id, state: 'merged' })
+  assert.equal(ghList.ok, true)
+  assert.equal(receivedList.state, 'merged')
+
+  const ghDetail = await call('prDetail', { accountId: ghAccount.id, pullRequestId: 'octocat/demo#12' })
+  assert.equal(ghDetail.ok, true)
+  assert.equal(ghDetail.value.description, 'GitHub PR detail')
+  assert.equal(JSON.stringify(ghDetail).includes(TOKEN), false)
+})

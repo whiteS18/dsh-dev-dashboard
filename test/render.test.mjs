@@ -80,6 +80,27 @@ const zhDict = {
   repoCloneError: '克隆仓库失败。',
   repoCreateWorkspacePrompt: '是否创建该仓库的工作区？',
   repoCreateWorkspaceConfirm: '是', repoCreateWorkspaceCancel: '否',
+  viewPrs: '查看 PR', prs: 'Codeup 合并请求', githubPrs: 'GitHub Pull Requests',
+  prsLoading: '正在读取 Codeup 合并请求…', githubPrsLoading: '正在读取 GitHub PR…',
+  prCount: '个 PR', noPrs: '没有匹配的 PR',
+  noPrsDescription: '可以尝试切换组织、仓库、状态或清空搜索条件后刷新。',
+  noGithubPrsDescription: '可以尝试切换所有者、仓库、状态或清空搜索条件后刷新。',
+  selectPrPrompt: '点击左侧 PR 查看详细信息', prSearchPlaceholder: '搜索 PR…',
+  prUnavailable: '当前连接不可用，无法读取 PR 列表。',
+  unsupportedPrs: '该平台尚未接入 PR 获取',
+  unsupportedPrsDescription: '目前支持 Codeup（云效合并请求）和 GitHub 的 Pull Request 获取。',
+  loadingMorePrs: '正在加载更多 PR…', noMorePrs: '已加载全部 PR',
+  loadMorePrsError: '加载更多 PR 失败。',
+  prState: 'PR 状态', prStateAll: '全部状态', prStateOpen: '开放中', prStateMerged: '已合并', prStateClosed: '已关闭',
+  prDraft: '草稿', prConflict: '存在冲突', prBranches: '分支',
+  prAuthor: '创建人', prReviewers: '评审人', prAssignees: '负责人',
+  prMergedAt: '合并时间', prComments: '评论数', prCommits: '提交数',
+  prDiffStats: '变更统计', prFilesChanged: '个文件', prDescription: 'PR 描述',
+  prTruncated: '结果可能不完整：仓库或 PR 数量较多，仅展示最近更新的部分结果。请选择单个仓库查看完整列表。',
+  prStartModalTitle: '开始处理 PR',
+  prStartLoading: '正在克隆该 PR 对应的仓库到 ~/project…',
+  cloneStartingAgent: '正在创建对话并启动处理流程…',
+  skillKickoffError: '工作区已开启，但自动启动处理对话失败。',
 }
 
 const source = await readFile(new URL('../dist/client.js', import.meta.url), 'utf8')
@@ -1038,6 +1059,15 @@ test('clicking Start or Continue selects the issue and triggers cloneRepos RPC',
           value: issueData({ items: [startIssue, continueIssue], totalCount: 2, hasMore: false, truncated: false }),
         }
       }
+      if (endpoint === 'detail') {
+        return {
+          ok: true,
+          value: makeIssue({
+            id: payload.issueId,
+            description: '完整描述：把登录超时改为 60s',
+          }),
+        }
+      }
       if (endpoint === 'cloneRepos') {
         if (payload.issueId === 'issue-start') {
           return { ok: true, value: { empty: true, baseDir: '/Users/tester/project', results: [] } }
@@ -1069,11 +1099,22 @@ test('clicking Start or Continue selects the issue and triggers cloneRepos RPC',
       if (workspaceOpenError) throw workspaceOpenError
     },
   }
+  const sessionCalls = { create: [], prompt: [] }
+  const sessionRemote = {
+    async create(request) {
+      sessionCalls.create.push(request)
+      return { ok: true, value: { sessionId: 'sess-1' } }
+    },
+    async prompt(request) {
+      sessionCalls.prompt.push(request)
+      return { ok: true, value: { accepted: true } }
+    },
+  }
   plugin.apply({
     effect(setup) { return setup() },
     locale: { register() { return () => {} }, bind() { return key => zhDict[key] ?? key } },
     configForms: { get: () => ({ getSnapshot: () => accountSnapshot(), subscribe: () => () => {} }) },
-    remote: { credentials: {} },
+    remote: { credentials: {}, session: sessionRemote },
     connection: { rpc },
     workspaces,
     uiWorkspace,
@@ -1156,6 +1197,16 @@ test('clicking Start or Continue selects the issue and triggers cloneRepos RPC',
     { path: '/Users/tester/project/app-repo' },
   ])
   assert.deepEqual(openedWorkspaces, ['ws-1'])
+  assert.equal(sessionCalls.create.length, 1)
+  assert.deepEqual(JSON.parse(JSON.stringify(sessionCalls.create[0])), { workspaceId: 'ws-1' })
+  assert.equal(sessionCalls.prompt.length, 1)
+  const promptRequest = sessionCalls.prompt[0]
+  assert.equal(promptRequest.sessionId, 'sess-1')
+  assert.equal(promptRequest.mode, 'queue')
+  const promptText = promptRequest.content[0].text
+  assert.match(promptText, /\/grill-with-docs \/to-spec \/to-tickets \/implement/)
+  assert.match(promptText, /修复登录超时/)
+  assert.match(promptText, /完整描述：把登录超时改为 60s/)
 
   workspaceOpenError = new Error('workspace busy')
   buttons[1].props.onClick({ stopPropagation() {} })
@@ -1163,6 +1214,7 @@ test('clicking Start or Continue selects the issue and triggers cloneRepos RPC',
   assert.equal(stateSlots[6].status, 'done')
   assert.equal(stateSlots[6].results[0].path, 'app-repo')
   assert.ok(stateSlots[6].error.includes('workspace busy'))
+  assert.equal(sessionCalls.create.length, 1)
 
   const cloneCalls = rpcCalls.filter(call => call.endpoint === 'cloneRepos')
   assert.deepEqual(JSON.parse(JSON.stringify(cloneCalls.map(call => call.payload))), [
@@ -1553,4 +1605,413 @@ test('RepoWorkbench clones selected repo, prompts to create workspace, and creat
   ])
   assert.deepEqual(openedWorkspaces, ['ws-1'])
   assert.equal(stateSlots[6].status, 'idle')
+})
+
+test('view mode dropdown includes 查看 PR below 查看任务 and 查看仓库, and renders PullRequestWorkbench', () => {
+  const { render, form } = harness()
+  form.snapshot = {
+    status: 'ready',
+    writable: true,
+    value: {
+      accounts: [
+        { id: 'acc-gh', platform: 'github', username: 'octocat' },
+      ],
+      selectedAccountId: 'acc-gh',
+    },
+  }
+
+  const prItem = {
+    id: 'octocat/demo-app#12',
+    number: 12,
+    serialNumber: '#12',
+    organizationId: 'octocat',
+    repositoryId: 'octocat/demo-app',
+    repositoryName: 'octocat/demo-app',
+    title: 'Support PR viewer',
+    description: '## Summary\nAdd PR list and details',
+    formatType: 'MARKDOWN',
+    state: 'open',
+    rawState: 'open',
+    draft: true,
+    sourceBranch: 'feat/prs',
+    targetBranch: 'main',
+    author: { id: '1', name: 'octocat' },
+    reviewers: [{ id: '2', name: 'reviewer1' }],
+    assignees: [{ id: '1', name: 'octocat' }],
+    labels: [{ id: '5', name: 'enhancement' }],
+    hasConflict: true,
+    commentsCount: 4,
+    commitsCount: 3,
+    additions: 120,
+    deletions: 15,
+    changedFiles: 6,
+    webUrl: 'https://github.com/octocat/demo-app/pull/12',
+    gmtCreate: '2026-11-20T00:00:00.000Z',
+    gmtModified: '2026-11-23T12:00:00.000Z',
+    mergedAt: null,
+  }
+  const prData = {
+    user: { id: '1', username: 'octocat' },
+    organizations: [{ id: 'octocat', name: 'octocat' }],
+    repositories: [{ id: 'octocat/demo-app', name: 'octocat/demo-app' }],
+    selectedOrganizationId: 'all',
+    selectedRepositoryId: 'all',
+    state: 'all',
+    items: [prItem],
+    totalCount: 1,
+    page: 1,
+    hasMore: false,
+    nextPage: null,
+    truncated: false,
+  }
+
+  const viewModeChanges = []
+  const rendered = render({
+    GitWorkbenchPage: [
+      [{ kind: 'closed', accountId: '', returnToList: false }, () => {}],
+      ['', () => {}],
+      ['github', () => {}],
+      ['', () => {}],
+      ['', () => {}],
+      [false, () => {}],
+      [false, () => {}],
+      ['', () => {}],
+      ['prs', next => viewModeChanges.push(next)],
+    ],
+    PullRequestWorkbench: [
+      ['', () => {}],
+      ['all', () => {}],
+      ['all', () => {}],
+      ['', () => {}],
+      ['', () => {}],
+      [0, () => {}],
+      ['octocat/demo-app#12', () => {}],
+      [{ status: 'ready', data: prData, error: '', loadingMore: false, loadMoreError: '' }, () => {}],
+      [{ status: 'idle', pr: null, baseDir: '', results: [], error: '' }, () => {}],
+    ],
+    PullRequestDetailPane: [
+      [{ status: 'ready', detail: prItem, error: '' }, () => {}],
+    ],
+  })
+
+  const viewModeSelectIdx = rendered.nodes.findIndex(node => String(node.props.className).includes('__viewModeSelect'))
+  assert.ok(viewModeSelectIdx >= 0)
+  assert.equal(rendered.nodes[viewModeSelectIdx].props.value, 'prs')
+
+  // Verify option order: 查看任务 -> 查看仓库 -> 查看 PR
+  const optionNodes = rendered.nodes.filter(node => node.tag === 'option')
+  const viewOptionValues = optionNodes
+    .map(node => node.props.value)
+    .filter(value => value === 'tasks' || value === 'repos' || value === 'prs')
+  assert.deepEqual(viewOptionValues, ['tasks', 'repos', 'prs'])
+  assert.ok(rendered.text.includes('查看任务'))
+  assert.ok(rendered.text.includes('查看仓库'))
+  assert.ok(rendered.text.includes('查看 PR'))
+
+  rendered.nodes[viewModeSelectIdx].props.onChange({ target: { value: 'prs' } })
+  assert.deepEqual(viewModeChanges, ['prs'])
+
+  for (const expected of [
+    'Support PR viewer', '#12', '开放中', '草稿', '存在冲突',
+    'feat/prs', 'main', 'octocat/demo-app', 'reviewer1',
+    '+120 / -15 · 6 个文件', '共 1 个 PR', '在 GitHub 中打开',
+    'Summary', 'Add PR list and details',
+  ]) {
+    assert.ok(rendered.text.includes(expected), `missing rendered PR text: ${expected}`)
+  }
+
+  const link = rendered.nodes.find(node => node.tag === 'a')
+  assert.equal(link?.props.href, 'https://github.com/octocat/demo-app/pull/12')
+  const startBtns = rendered.nodes.filter(node => node.tag === 'button' && node.props['data-action'] === 'start')
+  assert.equal(startBtns.length, 1)
+})
+
+test('clicking Start on an open PR clones its repository, opens workspace, and launches a PR handling session', async () => {
+  const rpcCalls = []
+  const createdWorkspaces = []
+  const openedWorkspaces = []
+  const createdSessions = []
+  const sentPrompts = []
+  const openPr = {
+    id: 'octocat/demo-app#12',
+    number: 12,
+    serialNumber: '#12',
+    organizationId: 'octocat',
+    repositoryId: 'octocat/demo-app',
+    repositoryName: 'octocat/demo-app',
+    title: 'Support PR viewer',
+    description: 'Initial PR body',
+    formatType: 'MARKDOWN',
+    state: 'open',
+    rawState: 'open',
+    draft: false,
+    sourceBranch: 'feat/prs',
+    targetBranch: 'main',
+    author: { id: '1', name: 'octocat' },
+    reviewers: [{ id: '2', name: 'reviewer1' }],
+    assignees: [],
+    labels: [],
+    hasConflict: false,
+    webUrl: 'https://github.com/octocat/demo-app/pull/12',
+    gmtCreate: '2026-11-20T00:00:00.000Z',
+    gmtModified: '2026-11-23T12:00:00.000Z',
+    mergedAt: null,
+  }
+  const mergedPr = {
+    ...openPr,
+    id: 'octocat/demo-app#9',
+    number: 9,
+    serialNumber: '#9',
+    title: 'Already merged PR',
+    state: 'merged',
+    rawState: 'merged',
+  }
+
+  let definition
+  const context = {
+    window: {
+      __ModuleLoader__: { load(value) { definition = value } },
+      innerHeight: 800,
+      addEventListener() {},
+      removeEventListener() {},
+    },
+    console, AbortController, Intl, Date, URL, setTimeout, clearTimeout,
+  }
+  vm.runInNewContext(source, context)
+
+  const stateSlots = []
+  const refSlots = []
+  const effectSlots = []
+  let stateIdx = 0
+  let refIdx = 0
+  let effectIdx = 0
+  let pendingEffects = []
+  let latestTree = null
+
+  let scheduled = false
+  function scheduleRerender() {
+    if (scheduled) return
+    scheduled = true
+    queueMicrotask(() => {
+      scheduled = false
+      rerender()
+    })
+  }
+
+  const React = {
+    createElement(type, props, ...children) { return { type, props: props || {}, children } },
+    useState(initial) {
+      const idx = stateIdx++
+      if (!(idx in stateSlots)) stateSlots[idx] = typeof initial === 'function' ? initial() : initial
+      const setState = (updater) => {
+        stateSlots[idx] = typeof updater === 'function' ? updater(stateSlots[idx]) : updater
+        scheduleRerender()
+      }
+      return [stateSlots[idx], setState]
+    },
+    useRef(initial) {
+      const idx = refIdx++
+      if (!(idx in refSlots)) refSlots[idx] = { current: initial }
+      return refSlots[idx]
+    },
+    useCallback(fn) { return fn },
+    useEffect(effect, deps) {
+      const idx = effectIdx++
+      const prev = effectSlots[idx]
+      const changed = !prev || !deps || deps.some((d, i) => !Object.is(d, prev.deps[i]))
+      if (changed) pendingEffects.push({ idx, effect, deps })
+    },
+    useSyncExternalStore(_sub, getSnapshot) { return getSnapshot() },
+    useId() { return 'test-id' },
+  }
+
+  const plugin = definition.factory((name) => {
+    if (name === 'react') return React
+    if (name === '@deepseek-ai/dsh-client-ui-primitives') return {}
+    throw new Error(`Unexpected require: ${name}`)
+  })
+
+  const registrations = []
+  const rpc = {
+    async call(_channel, endpoint, payload) {
+      rpcCalls.push({ endpoint, payload })
+      if (endpoint === 'listPrs') {
+        return {
+          ok: true,
+          value: {
+            user: { id: '1', username: 'octocat' },
+            organizations: [{ id: 'octocat', name: 'octocat' }],
+            repositories: [{ id: 'octocat/demo-app', name: 'octocat/demo-app' }],
+            selectedOrganizationId: 'all',
+            selectedRepositoryId: 'all',
+            state: 'all',
+            items: [openPr, mergedPr],
+            totalCount: 2,
+            page: 1,
+            hasMore: false,
+            nextPage: null,
+            truncated: false,
+          },
+        }
+      }
+      if (endpoint === 'prDetail') {
+        return {
+          ok: true,
+          value: { ...openPr, description: 'Detailed PR markdown body' },
+        }
+      }
+      if (endpoint === 'cloneRepo') {
+        return {
+          ok: true,
+          value: {
+            empty: false,
+            baseDir: '/Users/tester/project',
+            results: [{
+              name: 'demo-app',
+              path: 'demo-app',
+              targetDir: '/Users/tester/project/demo-app',
+              status: 'cloned',
+              error: '',
+            }],
+          },
+        }
+      }
+      throw new Error(`Unexpected RPC: ${endpoint}`)
+    },
+  }
+  const workspaces = {
+    async create(input) {
+      createdWorkspaces.push(input)
+      return { workspaceId: `ws-${createdWorkspaces.length}`, path: input.path }
+    },
+  }
+  const uiWorkspace = {
+    async openWorkspace(id) {
+      openedWorkspaces.push(id)
+    },
+  }
+  const sessionRemote = {
+    async create(input) {
+      createdSessions.push(input)
+      return { ok: true, value: { sessionId: `sess-${createdSessions.length}` } }
+    },
+    async prompt(input) {
+      sentPrompts.push(input)
+      return { ok: true, value: {} }
+    },
+  }
+  const ghSnapshot = {
+    status: 'ready',
+    writable: true,
+    value: {
+      accounts: [{ id: 'acc-gh', platform: 'github', username: 'octocat' }],
+      selectedAccountId: 'acc-gh',
+    },
+  }
+
+  plugin.apply({
+    effect(setup) { return setup() },
+    locale: { register() { return () => {} }, bind() { return key => zhDict[key] ?? key } },
+    configForms: { get: () => ({ getSnapshot: () => ghSnapshot, subscribe: () => () => {} }) },
+    remote: { credentials: {}, session: sessionRemote },
+    connection: { rpc },
+    workspaces,
+    uiWorkspace,
+    layout: { panelInfo: { getSnapshot: () => ({ activePanelId: null }) }, selectPanel() {} },
+    slots: {
+      inject(_owner, setup) { return setup() },
+      register(options, component) { registrations.push({ options, component }); return () => {} },
+    },
+  })
+
+  const main = registrations.find(item => item.options.name === 'main')
+  let pageSlotIdx = 0
+  const savedUseState = React.useState
+  React.useState = (initial) => {
+    const idx = pageSlotIdx++
+    if (idx === 8) return ['prs', () => {}]
+    return [typeof initial === 'function' ? initial() : initial, () => {}]
+  }
+  function findPrWorkbench(node) {
+    if (!node || typeof node !== 'object') return null
+    if (Array.isArray(node)) {
+      for (const child of node) {
+        const found = findPrWorkbench(child)
+        if (found) return found
+      }
+      return null
+    }
+    if (typeof node.type === 'function' && node.type.name === 'PullRequestWorkbench') return node
+    if (typeof node.type === 'function') return findPrWorkbench(node.type({ ...node.props, children: node.children }))
+    return findPrWorkbench(node.children)
+  }
+  const mainTree = React.createElement(main.component, { ...main.options.inject(), t: key => zhDict[key] ?? key })
+  const workbenchNode = findPrWorkbench(mainTree)
+  assert.ok(workbenchNode)
+  React.useState = savedUseState
+
+  const PullRequestWorkbench = workbenchNode.type
+  const workbenchProps = workbenchNode.props
+
+  function collectStartButtons(node, list = []) {
+    if (!node || typeof node !== 'object') return list
+    if (Array.isArray(node)) { node.forEach(child => collectStartButtons(child, list)); return list }
+    if (typeof node.type === 'function') {
+      if (node.type.name === 'PullRequestListItem') {
+        collectStartButtons(node.type({ ...node.props, children: node.children }), list)
+      }
+      return list
+    }
+    if (node.type === 'button' && String(node.props?.className).includes('__taskActionBtn')) {
+      list.push(node)
+    }
+    if (Array.isArray(node.children)) node.children.forEach(child => collectStartButtons(child, list))
+    return list
+  }
+
+  function rerender() {
+    stateIdx = 0
+    refIdx = 0
+    effectIdx = 0
+    pendingEffects = []
+    latestTree = PullRequestWorkbench(workbenchProps)
+    const effectsToRun = pendingEffects
+    pendingEffects = []
+    for (const item of effectsToRun) {
+      effectSlots[item.idx]?.cleanup?.()
+      effectSlots[item.idx] = { deps: item.deps, cleanup: undefined }
+      const cleanup = item.effect()
+      effectSlots[item.idx].cleanup = typeof cleanup === 'function' ? cleanup : undefined
+    }
+  }
+
+  rerender()
+  await new Promise(resolve => setTimeout(resolve, 25))
+
+  // Only the open PR gets a Start button; merged PR does not
+  const buttons = collectStartButtons(latestTree)
+  assert.equal(buttons.length, 1)
+  assert.equal(buttons[0].props['data-action'], 'start')
+
+  buttons[0].props.onClick({ stopPropagation() {} })
+  await new Promise(resolve => setTimeout(resolve, 25))
+
+  assert.deepEqual(JSON.parse(JSON.stringify(createdWorkspaces)), [
+    { path: '/Users/tester/project/demo-app' },
+  ])
+  assert.deepEqual(openedWorkspaces, ['ws-1'])
+  assert.deepEqual(JSON.parse(JSON.stringify(createdSessions)), [{ workspaceId: 'ws-1' }])
+  assert.equal(sentPrompts.length, 1)
+  assert.equal(sentPrompts[0].sessionId, 'sess-1')
+  assert.ok(sentPrompts[0].content[0].text.includes('feat/prs -> main'))
+  assert.ok(sentPrompts[0].content[0].text.includes('Detailed PR markdown body'))
+  assert.ok(sentPrompts[0].content[0].text.includes('https://github.com/octocat/demo-app/pull/12'))
+  assert.equal(stateSlots[8].status, 'idle')
+
+  const cloneCall = rpcCalls.find(call => call.endpoint === 'cloneRepo')
+  assert.deepEqual(JSON.parse(JSON.stringify(cloneCall.payload)), {
+    accountId: 'acc-gh',
+    organizationId: 'octocat',
+    repositoryId: 'octocat/demo-app',
+  })
 })

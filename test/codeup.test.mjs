@@ -671,3 +671,96 @@ test('listRepositories lists paginated organization repositories with search and
   assert.equal(single.repository.httpUrl, 'https://codeup.aliyun.com/org-1/backend.git')
   assert.equal(JSON.stringify(listed).includes(TOKEN), false)
 })
+
+test('listPullRequests queries Codeup changeRequests with filters and pullRequestDetail loads single MR', async () => {
+  const { fetchImpl } = mockFetch((call) => {
+    const parsed = new URL(call.url)
+    if (parsed.pathname === '/oapi/v1/platform/user') {
+      return response({ id: USER_ID, name: 'Test user', username: 'git-tester', lastOrganization: ORG_ID })
+    }
+    if (parsed.pathname === '/oapi/v1/platform/organizations') {
+      return response([{ id: ORG_ID, name: 'Org one', description: 'Unit test' }])
+    }
+    if (parsed.pathname === `/oapi/v1/codeup/organizations/${ORG_ID}/repositories`) {
+      return response([{
+        id: 101,
+        name: 'backend',
+        path: 'backend',
+        pathWithNamespace: 'org-1/backend',
+        httpUrlToRepo: 'https://codeup.aliyun.com/org-1/backend.git',
+      }])
+    }
+    if (parsed.pathname === `/oapi/v1/codeup/organizations/${ORG_ID}/changeRequests`) {
+      assert.equal(parsed.searchParams.get('state'), 'opened')
+      assert.equal(parsed.searchParams.get('projectIds'), '101')
+      assert.equal(parsed.searchParams.get('search'), 'oauth')
+      return response(
+        [{
+          localId: 7,
+          projectId: 101,
+          title: 'Add OAuth support',
+          description: '## Summary\nImplement OAuth flow',
+          state: 'UNDER_REVIEW',
+          workInProgress: true,
+          hasConflict: false,
+          sourceBranch: 'feat/oauth',
+          targetBranch: 'main',
+          author: { userId: 'u1', name: 'Alice' },
+          reviewers: [{ userId: 'u2', name: 'Bob', reviewOpinionStatus: 'PASS' }],
+          totalCommentCount: 3,
+          webUrl: 'https://codeup.aliyun.com/org-1/backend/change/7',
+          createdAt: '2026-11-20T01:00:00Z',
+          updatedAt: '2026-11-21T02:00:00Z',
+        }],
+        { headers: { 'x-total': '1', 'x-total-pages': '1' } },
+      )
+    }
+    if (parsed.pathname === `/oapi/v1/codeup/organizations/${ORG_ID}/repositories/101/changeRequests/7`) {
+      return response({
+        localId: 7,
+        projectId: 101,
+        title: 'Add OAuth support',
+        description: 'Full MR description',
+        state: 'MERGED',
+        sourceBranch: 'feat/oauth',
+        targetBranch: 'main',
+        author: { userId: 'u1', name: 'Alice' },
+        webUrl: 'https://codeup.aliyun.com/org-1/backend/change/7',
+        createdAt: '2026-11-20T01:00:00Z',
+        updatedAt: '2026-11-22T02:00:00Z',
+      })
+    }
+    throw new Error(`Unexpected request: ${call.url}`)
+  })
+
+  const api = createCodeupApi(fetchImpl)
+  const listed = await api.listPullRequests({
+    token: TOKEN,
+    repositoryId: '101',
+    state: 'open',
+    search: 'oauth',
+  })
+  assert.equal(listed.selectedOrganizationId, ORG_ID)
+  assert.equal(listed.totalCount, 1)
+  assert.equal(listed.hasMore, false)
+  assert.equal(listed.repositories.length, 1)
+  assert.equal(listed.items.length, 1)
+  assert.equal(listed.items[0].id, '101#7')
+  assert.equal(listed.items[0].serialNumber, '!7')
+  assert.equal(listed.items[0].state, 'open')
+  assert.equal(listed.items[0].draft, true)
+  assert.equal(listed.items[0].sourceBranch, 'feat/oauth')
+  assert.equal(listed.items[0].targetBranch, 'main')
+  assert.equal(listed.items[0].repositoryName, 'org-1/backend')
+  assert.equal(listed.items[0].commentsCount, 3)
+
+  const detail = await api.pullRequestDetail({
+    token: TOKEN,
+    organizationId: ORG_ID,
+    pullRequestId: '101#7',
+  })
+  assert.equal(detail.id, '101#7')
+  assert.equal(detail.state, 'merged')
+  assert.equal(detail.description, 'Full MR description')
+  assert.equal(JSON.stringify(detail).includes(TOKEN), false)
+})

@@ -4,7 +4,11 @@ const DEFAULT_ISSUE_PAGE_SIZE = 20
 const MAX_ISSUE_PAGE_SIZE = 200
 const MAX_REPO_PAGES = 10
 const MAX_ISSUE_PAGES = 50
+const MAX_PR_REPOS_SCAN = 30
+const MAX_PR_PAGES = 20
+const PR_CONCURRENCY = 6
 const SCOPES = new Set(['all', 'assigned', 'participant'])
+const PR_STATES = new Set(['all', 'open', 'merged', 'closed'])
 const REPO_SEGMENT = /^[A-Za-z0-9._-]+$/
 
 export class GitHubError extends Error {
@@ -42,6 +46,86 @@ function cleanScope(scope) {
     throw new GitHubError('bad-request', 'Issue 范围必须是 all、assigned 或 participant。')
   }
   return value
+}
+
+function cleanPrState(state) {
+  const value = asString(state).trim().toLowerCase() || 'all'
+  if (!PR_STATES.has(value)) {
+    throw new GitHubError('bad-request', 'PR 状态必须是 all、open、merged 或 closed。')
+  }
+  return value
+}
+
+function normalizePullRequest(raw, fallbackRepo = null) {
+  if (!raw || typeof raw !== 'object') return null
+  const baseRepo = raw.base?.repo
+  const repoFullName = asString(baseRepo?.full_name).trim()
+    || asString(fallbackRepo?.fullName || fallbackRepo?.id).trim()
+  const parsedRepo = parseRepoFullName(repoFullName)
+  const number = Number(raw.number)
+  if (!parsedRepo || !Number.isSafeInteger(number) || number < 1) return null
+
+  const mergedAt = time(raw.merged_at)
+  const rawState = asString(raw.state).trim().toLowerCase()
+  const state = mergedAt ? 'merged' : (rawState === 'closed' ? 'closed' : 'open')
+  const rawAssignees = Array.isArray(raw.assignees) && raw.assignees.length > 0
+    ? raw.assignees
+    : (raw.assignee ? [raw.assignee] : [])
+  const assignees = rawAssignees.map(normalizePerson).filter(Boolean)
+  const reviewers = Array.isArray(raw.requested_reviewers)
+    ? raw.requested_reviewers.map(normalizePerson).filter(Boolean)
+    : []
+  const author = normalizePerson(raw.user)
+  const commentSum = (Number.isInteger(raw.comments) ? raw.comments : 0)
+    + (Number.isInteger(raw.review_comments) ? raw.review_comments : 0)
+  const hasCommentCounts = Number.isInteger(raw.comments) || Number.isInteger(raw.review_comments)
+
+  return {
+    id: `${parsedRepo.fullName}#${number}`,
+    number,
+    serialNumber: `#${number}`,
+    organizationId: parsedRepo.owner,
+    repositoryId: parsedRepo.fullName,
+    repositoryName: parsedRepo.fullName,
+    title: asString(raw.title).trim() || `#${number}`,
+    description: asString(raw.body),
+    formatType: 'MARKDOWN',
+    state,
+    rawState: mergedAt ? 'merged' : (rawState || 'open'),
+    draft: Boolean(raw.draft),
+    sourceBranch: asString(raw.head?.ref).trim(),
+    targetBranch: asString(raw.base?.ref).trim(),
+    author,
+    reviewers,
+    assignees,
+    labels: normalizeLabels(raw.labels),
+    hasConflict: raw.mergeable === false ? true : (raw.mergeable === true ? false : null),
+    commentsCount: hasCommentCounts ? commentSum : null,
+    commitsCount: Number.isInteger(raw.commits) ? raw.commits : null,
+    additions: Number.isInteger(raw.additions) ? raw.additions : null,
+    deletions: Number.isInteger(raw.deletions) ? raw.deletions : null,
+    changedFiles: Number.isInteger(raw.changed_files) ? raw.changed_files : null,
+    webUrl: safeGitHubUrl(raw.html_url),
+    gmtCreate: time(raw.created_at),
+    gmtModified: time(raw.updated_at ?? raw.created_at),
+    mergedAt,
+  }
+}
+
+function matchesPrFilter(pr, selectedState, cleanSearch) {
+  if (selectedState !== 'all' && pr.state !== selectedState) return false
+  if (cleanSearch) {
+    const haystack = [
+      pr.title,
+      pr.serialNumber,
+      pr.repositoryName,
+      pr.sourceBranch,
+      pr.targetBranch,
+      pr.author?.name || '',
+    ].join('\n').toLowerCase()
+    if (!haystack.includes(cleanSearch)) return false
+  }
+  return true
 }
 
 function cleanPageSize(pageSize) {
@@ -1188,5 +1272,151 @@ export function createGitHubApi({ fetch = globalThis.fetch, baseUrl = BASE_URL }
     }
   }
 
-  return { load, count, detail, repositories, listRepositories, repository }
+  async function fetchRepoPullsPage(accessToken, owner, repo, ghState, page, signal) {
+    const path = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls?state=${ghState}&sort=updated&direction=desc&per_page=${PAGE_SIZE}&page=${page}`
+    return request(accessToken, path, { signal })
+  }
+
+  async function listPullRequests({
+    token,
+    organizationId = '',
+    repositoryId = 'all',
+    state = 'all',
+    search = '',
+    page = 1,
+    pageSize = DEFAULT_ISSUE_PAGE_SIZE,
+    signal,
+  } = {}) {
+    const accessToken = cleanToken(token)
+    const requestedOrganization = asString(organizationId).trim()
+    const requestedRepo = asString(repositoryId).trim() || 'all'
+    const selectedState = cleanPrState(state)
+    const cleanSearch = asString(search).trim().toLowerCase()
+    const effectivePage = Number(page)
+    if (!Number.isInteger(effectivePage) || effectivePage < 1) {
+      throw new GitHubError('bad-request', '页码无效。')
+    }
+    const effectivePageSize = Number(pageSize)
+    if (!Number.isInteger(effectivePageSize) || effectivePageSize < 1 || effectivePageSize > 100) {
+      throw new GitHubError('bad-request', '分页大小无效。')
+    }
+
+    const [userResult, reposResult] = await Promise.all([
+      request(accessToken, '/user', { signal }),
+      fetchAccessibleRepos(accessToken, signal),
+    ])
+    const user = normalizeUser(objectBody(userResult))
+    const rawRepos = reposResult.repos
+    const organizations = deriveOrganizations(rawRepos, user)
+
+    let selectedOrganizationId = requestedOrganization || 'all'
+    if (selectedOrganizationId !== 'all' && organizations.length > 0) {
+      const matchedOrg = organizations.find(item => item.id.toLowerCase() === selectedOrganizationId.toLowerCase())
+      if (matchedOrg) selectedOrganizationId = matchedOrg.id
+    }
+
+    const filteredRawRepos = selectedOrganizationId === 'all'
+      ? rawRepos
+      : rawRepos.filter(repo => asString(repo?.owner?.login).toLowerCase() === selectedOrganizationId.toLowerCase())
+    const repositories = filteredRawRepos
+      .filter(repo => Boolean(parseRepoFullName(repo?.full_name)))
+      .map(repo => normalizeRepoProject(repo, selectedOrganizationId === 'all'))
+
+    const ghState = selectedState === 'open'
+      ? 'open'
+      : (selectedState === 'closed' || selectedState === 'merged')
+        ? 'closed'
+        : 'all'
+
+    const allMatched = []
+    let truncated = Boolean(reposResult.limited)
+
+    if (requestedRepo !== 'all') {
+      const parsedRepo = parseRepoFullName(requestedRepo)
+      if (!parsedRepo) {
+        throw new GitHubError('bad-request', 'GitHub 仓库名称格式无效。')
+      }
+      let prPage = 1
+      while (prPage <= MAX_PR_PAGES) {
+        const result = await fetchRepoPullsPage(accessToken, parsedRepo.owner, parsedRepo.repo, ghState, prPage, signal)
+        const rows = arrayBody(result)
+        for (const raw of rows) {
+          const normalized = normalizePullRequest(raw, { id: parsedRepo.fullName, fullName: parsedRepo.fullName })
+          if (normalized && matchesPrFilter(normalized, selectedState, cleanSearch)) {
+            allMatched.push(normalized)
+          }
+        }
+        if (!hasNextPage(result.response, rows, PAGE_SIZE)) break
+        prPage += 1
+      }
+      if (prPage > MAX_PR_PAGES) truncated = true
+    } else {
+      const reposToScan = repositories.slice(0, MAX_PR_REPOS_SCAN)
+      if (repositories.length > MAX_PR_REPOS_SCAN) truncated = true
+
+      for (let i = 0; i < reposToScan.length; i += PR_CONCURRENCY) {
+        const batch = reposToScan.slice(i, i + PR_CONCURRENCY)
+        const settled = await Promise.all(batch.map(async (repo) => {
+          const parsedRepo = parseRepoFullName(repo.id)
+          if (!parsedRepo) return []
+          try {
+            const result = await fetchRepoPullsPage(accessToken, parsedRepo.owner, parsedRepo.repo, ghState, 1, signal)
+            const rows = arrayBody(result)
+            if (hasNextPage(result.response, rows, PAGE_SIZE)) truncated = true
+            return rows
+              .map(raw => normalizePullRequest(raw, repo))
+              .filter(pr => pr && matchesPrFilter(pr, selectedState, cleanSearch))
+          } catch (error) {
+            if (
+              error instanceof GitHubError
+              && (error.code === 'not-found' || error.code === 'permission-denied' || error.details?.status === 410)
+            ) {
+              return []
+            }
+            throw error
+          }
+        }))
+        for (const list of settled) allMatched.push(...list)
+      }
+    }
+
+    allMatched.sort((a, b) => {
+      const timeA = a.gmtModified ? Date.parse(a.gmtModified) : 0
+      const timeB = b.gmtModified ? Date.parse(b.gmtModified) : 0
+      return timeB - timeA
+    })
+
+    const totalCount = allMatched.length
+    const start = (effectivePage - 1) * effectivePageSize
+    const items = allMatched.slice(start, start + effectivePageSize)
+    const hasMore = start + items.length < totalCount
+
+    return {
+      user,
+      organizations,
+      repositories,
+      selectedOrganizationId,
+      selectedRepositoryId: requestedRepo,
+      state: selectedState,
+      items,
+      totalCount,
+      page: effectivePage,
+      hasMore,
+      nextPage: hasMore ? effectivePage + 1 : null,
+      truncated,
+    }
+  }
+
+  async function pullRequestDetail({ token, pullRequestId, signal } = {}) {
+    const accessToken = cleanToken(token)
+    const parsed = parseIssueId(pullRequestId)
+    const result = await request(
+      accessToken,
+      `/repos/${encodeURIComponent(parsed.owner)}/${encodeURIComponent(parsed.repo)}/pulls/${parsed.number}`,
+      { signal },
+    )
+    return normalizePullRequest(objectBody(result), { id: parsed.fullName, fullName: parsed.fullName })
+  }
+
+  return { load, count, detail, repositories, listRepositories, repository, listPullRequests, pullRequestDetail }
 }

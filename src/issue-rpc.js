@@ -372,6 +372,35 @@ export function registerIssueRpc(ctx, config, apis = null, cloneService = create
           signal,
         }))
       }
+      if (endpoint === 'listPrs') {
+        if (typeof api.listPullRequests !== 'function') {
+          throw rpcError('bad-request', '当前平台暂不支持获取 PR 列表。')
+        }
+        return ok(await api.listPullRequests({
+          token,
+          organizationId: optionalString(payload.organizationId, 'organizationId'),
+          repositoryId: optionalString(payload.repositoryId, 'repositoryId', 300) || 'all',
+          state: optionalString(payload.state, 'state', 30) || 'all',
+          search: optionalString(payload.search, 'search', 200),
+          page: optionalInteger(payload.page, 'page', 1, 1, 10000),
+          pageSize: optionalInteger(payload.pageSize, 'pageSize', 20, 1, 100),
+          signal,
+        }))
+      }
+      if (endpoint === 'prDetail') {
+        if (typeof api.pullRequestDetail !== 'function') {
+          throw rpcError('bad-request', '当前平台暂不支持获取 PR 详情。')
+        }
+        const organizationId = account.platform === 'codeup'
+          ? requiredString(payload.organizationId, 'organizationId')
+          : optionalString(payload.organizationId, 'organizationId')
+        return ok(await api.pullRequestDetail({
+          token,
+          organizationId,
+          pullRequestId: requiredString(payload.pullRequestId, 'pullRequestId', 300),
+          signal,
+        }))
+      }
       throw rpcError('bad-request', '不支持的工作台请求。')
     } catch (error) {
       const result = failure(error)

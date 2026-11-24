@@ -344,3 +344,130 @@ test('listRepositories filters by owner and search with pagination, and reposito
     error => error instanceof GitHubError && error.code === 'bad-request',
   )
 })
+
+test('listPullRequests scans accessible repos, filters by state/search, and pullRequestDetail loads PR stats', async () => {
+  const { fetchImpl } = mockFetch((call) => {
+    const path = pathname(call)
+    if (path === '/user') return response({ id: 1, login: 'octocat', name: 'Octocat' })
+    if (path === '/user/repos') {
+      return response([
+        makeRepo('octocat/alpha'),
+        makeRepo('acme-org/gamma'),
+      ])
+    }
+    if (path === '/repos/octocat/alpha/pulls') {
+      return response([
+        {
+          number: 12,
+          title: 'Add PR viewer',
+          body: '## Details\nView PRs',
+          state: 'open',
+          draft: false,
+          head: { ref: 'feat/prs' },
+          base: { ref: 'main', repo: makeRepo('octocat/alpha') },
+          user: { id: 1, login: 'octocat' },
+          requested_reviewers: [{ id: 2, login: 'reviewer1' }],
+          assignees: [{ id: 1, login: 'octocat' }],
+          labels: [{ id: 5, name: 'enhancement', color: 'a2eeef' }],
+          html_url: 'https://github.com/octocat/alpha/pull/12',
+          created_at: '2026-11-20T00:00:00Z',
+          updated_at: '2026-11-23T12:00:00Z',
+          merged_at: null,
+        },
+        {
+          number: 9,
+          title: 'Fix login bug',
+          body: 'Merged fix',
+          state: 'closed',
+          draft: false,
+          head: { ref: 'fix/login' },
+          base: { ref: 'main', repo: makeRepo('octocat/alpha') },
+          user: { id: 1, login: 'octocat' },
+          requested_reviewers: [],
+          assignees: [],
+          labels: [],
+          html_url: 'https://github.com/octocat/alpha/pull/9',
+          created_at: '2026-11-18T00:00:00Z',
+          updated_at: '2026-11-19T12:00:00Z',
+          merged_at: '2026-11-19T12:00:00Z',
+        },
+      ])
+    }
+    if (path === '/repos/acme-org/gamma/pulls') {
+      return response([
+        {
+          number: 3,
+          title: 'Abandon experiment',
+          body: '',
+          state: 'closed',
+          draft: true,
+          head: { ref: 'exp' },
+          base: { ref: 'main', repo: makeRepo('acme-org/gamma') },
+          user: { id: 3, login: 'teammate' },
+          requested_reviewers: [],
+          assignees: [],
+          labels: [],
+          html_url: 'https://github.com/acme-org/gamma/pull/3',
+          created_at: '2026-11-15T00:00:00Z',
+          updated_at: '2026-11-22T00:00:00Z',
+          merged_at: null,
+        },
+      ])
+    }
+    if (path === '/repos/octocat/alpha/pulls/12') {
+      return response({
+        number: 12,
+        title: 'Add PR viewer',
+        body: 'Full PR markdown body',
+        state: 'open',
+        draft: false,
+        mergeable: false,
+        commits: 4,
+        additions: 120,
+        deletions: 15,
+        changed_files: 6,
+        comments: 2,
+        review_comments: 3,
+        head: { ref: 'feat/prs' },
+        base: { ref: 'main', repo: makeRepo('octocat/alpha') },
+        user: { id: 1, login: 'octocat' },
+        requested_reviewers: [{ id: 2, login: 'reviewer1' }],
+        assignees: [],
+        labels: [],
+        html_url: 'https://github.com/octocat/alpha/pull/12',
+        created_at: '2026-11-20T00:00:00Z',
+        updated_at: '2026-11-23T12:00:00Z',
+        merged_at: null,
+      })
+    }
+    throw new Error(`Unexpected path: ${path}`)
+  })
+
+  const api = createGitHubApi({ fetch: fetchImpl })
+
+  const allPrs = await api.listPullRequests({ token: TOKEN })
+  assert.equal(allPrs.totalCount, 3)
+  assert.deepEqual(allPrs.items.map(item => item.id), [
+    'octocat/alpha#12',
+    'acme-org/gamma#3',
+    'octocat/alpha#9',
+  ])
+  assert.equal(allPrs.items[0].state, 'open')
+  assert.equal(allPrs.items[1].state, 'closed')
+  assert.equal(allPrs.items[2].state, 'merged')
+
+  const mergedOnly = await api.listPullRequests({ token: TOKEN, repositoryId: 'octocat/alpha', state: 'merged' })
+  assert.equal(mergedOnly.totalCount, 1)
+  assert.equal(mergedOnly.items[0].id, 'octocat/alpha#9')
+
+  const detail = await api.pullRequestDetail({ token: TOKEN, pullRequestId: 'octocat/alpha#12' })
+  assert.equal(detail.id, 'octocat/alpha#12')
+  assert.equal(detail.hasConflict, true)
+  assert.equal(detail.commitsCount, 4)
+  assert.equal(detail.additions, 120)
+  assert.equal(detail.deletions, 15)
+  assert.equal(detail.changedFiles, 6)
+  assert.equal(detail.commentsCount, 5)
+  assert.equal(detail.sourceBranch, 'feat/prs')
+  assert.equal(detail.targetBranch, 'main')
+})

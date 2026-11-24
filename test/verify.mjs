@@ -43,7 +43,7 @@ const plugin = definition.factory((name) => {
 })
 assert.equal(
   JSON.stringify(plugin.inject),
-  JSON.stringify(['slots', 'layout', 'locale', 'configForms', 'remote', 'remote.credentials', 'connection', 'workspaces', 'uiWorkspace']),
+  JSON.stringify(['slots', 'layout', 'locale', 'configForms', 'remote', 'remote.credentials', 'remote.session', 'connection', 'workspaces', 'uiWorkspace']),
 )
 const registrations = []
 const injected = []

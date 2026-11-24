@@ -9,6 +9,7 @@ const MAX_WORKITEM_PAGE_SIZE = 200
 const MAX_PROJECT_PAGES = 50
 const MAX_WORKITEM_PAGES = 50
 const SCOPES = new Set(['all', 'assigned', 'participant'])
+const PR_STATES = new Set(['all', 'open', 'merged', 'closed'])
 
 export class CodeupError extends Error {
   constructor(code, message, details = {}) {
@@ -45,6 +46,103 @@ function cleanScope(scope) {
     throw new CodeupError('bad-request', '工作项范围必须是 all、assigned 或 participant。')
   }
   return value
+}
+
+function cleanPrState(state) {
+  const value = asString(state).trim().toLowerCase() || 'all'
+  if (!PR_STATES.has(value)) {
+    throw new CodeupError('bad-request', 'PR 状态必须是 all、open、merged 或 closed。')
+  }
+  return value
+}
+
+function parseCodeupPrId(value) {
+  const raw = required(value, 'pullRequestId')
+  const hashIndex = raw.lastIndexOf('#')
+  if (hashIndex <= 0) {
+    throw new CodeupError('bad-request', 'Codeup 合并请求标识无效。')
+  }
+  const repositoryId = raw.slice(0, hashIndex).trim()
+  const localId = raw.slice(hashIndex + 1).trim()
+  if (!repositoryId || !/^\d+$/.test(localId)) {
+    throw new CodeupError('bad-request', 'Codeup 合并请求标识无效。')
+  }
+  return { repositoryId, localId }
+}
+
+function normalizeCodeupPrState(rawState) {
+  const upper = asString(rawState).trim().toUpperCase()
+  if (upper === 'MERGED') return 'merged'
+  if (upper === 'CLOSED') return 'closed'
+  return 'open'
+}
+
+function normalizeCodeupPrPerson(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const id = asString(value.userId ?? value.id ?? value.aliyunPk).trim()
+  const name = asString(value.name || value.username).trim()
+  if (!id && !name) return null
+  const reviewStatus = asString(value.reviewOpinionStatus).trim()
+  return reviewStatus
+    ? { id: id || name, name: name || id, status: reviewStatus }
+    : { id: id || name, name: name || id }
+}
+
+function normalizeChangeRequest(raw, organizationId = '', repoMap = null) {
+  if (!raw || typeof raw !== 'object') return null
+  const projectId = asString(raw.projectId ?? raw.targetProjectId ?? raw.sourceProjectId).trim()
+  const localIdNum = Number(raw.localId)
+  const localId = Number.isSafeInteger(localIdNum) && localIdNum > 0 ? localIdNum : null
+  const id = projectId && localId !== null
+    ? `${projectId}#${localId}`
+    : asString(raw.id).trim()
+  if (!id) return null
+  const webUrl = asString(raw.webUrl || raw.detailUrl).trim()
+  const matchedRepo = projectId && repoMap ? repoMap.get(projectId) : null
+  const repositoryName = asString(raw.nameWithNamespace || raw.pathWithNamespace).trim()
+    || matchedRepo?.fullName
+    || extractCodeupRepoPathFromUrl(webUrl)
+    || projectId
+  const rawState = asString(raw.state || raw.status).trim()
+  const state = normalizeCodeupPrState(rawState)
+  const reviewers = Array.isArray(raw.reviewers)
+    ? raw.reviewers.map(normalizeCodeupPrPerson).filter(Boolean)
+    : []
+  const assignees = Array.isArray(raw.assignees)
+    ? raw.assignees.map(normalizeCodeupPrPerson).filter(Boolean)
+    : []
+  const commentsCount = Number.isInteger(raw.totalCommentCount) ? raw.totalCommentCount : null
+
+  return {
+    id,
+    number: localId,
+    serialNumber: localId !== null ? `!${localId}` : id,
+    organizationId: asString(organizationId).trim(),
+    repositoryId: projectId,
+    repositoryName,
+    title: asString(raw.title).trim() || (localId !== null ? `!${localId}` : id),
+    description: asString(raw.description),
+    formatType: 'MARKDOWN',
+    state,
+    rawState,
+    draft: Boolean(raw.workInProgress),
+    sourceBranch: asString(raw.sourceBranch).trim(),
+    targetBranch: asString(raw.targetBranch).trim(),
+    author: normalizeCodeupPrPerson(raw.author),
+    reviewers,
+    assignees,
+    labels: labels(raw.labels),
+    hasConflict: typeof raw.hasConflict === 'boolean' ? raw.hasConflict : null,
+    commentsCount,
+    commitsCount: null,
+    additions: null,
+    deletions: null,
+    changedFiles: null,
+    webUrl,
+    gmtCreate: time(raw.createdAt ?? raw.gmtCreate),
+    gmtModified: time(raw.updatedAt ?? raw.gmtModified ?? raw.createdAt),
+    mergedAt: state === 'merged' ? time(raw.mergedAt ?? raw.updatedAt) : null,
+  }
 }
 
 function cleanPageSize(pageSize) {
@@ -1231,5 +1329,136 @@ export function createCodeupApi(fetchImpl = globalThis.fetch) {
     }
   }
 
-  return { load, count, detail, repositories, listRepositories, repository }
+  async function listPullRequests({
+    token,
+    organizationId = '',
+    repositoryId = 'all',
+    state = 'all',
+    search = '',
+    page = 1,
+    pageSize = DEFAULT_WORKITEM_PAGE_SIZE,
+    signal,
+  } = {}) {
+    const accessToken = cleanToken(token)
+    const requestedOrganization = asString(organizationId).trim()
+    const requestedRepo = asString(repositoryId).trim() || 'all'
+    const selectedState = cleanPrState(state)
+    const cleanSearch = asString(search).trim()
+    const effectivePage = Number(page)
+    if (!Number.isInteger(effectivePage) || effectivePage < 1) {
+      throw new CodeupError('bad-request', '页码无效。')
+    }
+    const effectivePageSize = Number(pageSize)
+    if (!Number.isInteger(effectivePageSize) || effectivePageSize < 1 || effectivePageSize > 100) {
+      throw new CodeupError('bad-request', '分页大小无效。')
+    }
+
+    let user
+    let organizations = []
+    let selectedOrganizationId = requestedOrganization
+    if (effectivePage === 1 || !selectedOrganizationId) {
+      const [userResult, organizationResult] = await Promise.all([
+        request(accessToken, '/oapi/v1/platform/user', { signal }),
+        request(accessToken, '/oapi/v1/platform/organizations', { signal }),
+      ])
+      user = normalizeUser(objectBody(userResult))
+      organizations = arrayBody(organizationResult).map(normalizeOrganization)
+      selectedOrganizationId = requestedOrganization
+        || organizations.find(item => item.id === user.lastOrganization)?.id
+        || organizations[0]?.id
+        || ''
+    } else {
+      const userResult = await request(accessToken, '/oapi/v1/platform/user', { signal })
+      user = normalizeUser(objectBody(userResult))
+    }
+
+    if (!selectedOrganizationId) {
+      return {
+        user,
+        organizations,
+        repositories: [],
+        selectedOrganizationId: '',
+        selectedRepositoryId: 'all',
+        state: selectedState,
+        items: [],
+        totalCount: 0,
+        page: effectivePage,
+        hasMore: false,
+        nextPage: null,
+        truncated: false,
+      }
+    }
+
+    const org = encodeURIComponent(selectedOrganizationId)
+    const params = new URLSearchParams({
+      page: String(effectivePage),
+      perPage: String(effectivePageSize),
+      orderBy: 'updated_at',
+      sort: 'desc',
+    })
+    if (selectedState === 'open') params.set('state', 'opened')
+    else if (selectedState === 'merged') params.set('state', 'merged')
+    else if (selectedState === 'closed') params.set('state', 'closed')
+    if (requestedRepo !== 'all') params.set('projectIds', requestedRepo)
+    if (cleanSearch) params.set('search', cleanSearch)
+
+    const [prResult, repoListResult] = await Promise.all([
+      request(accessToken, `/oapi/v1/codeup/organizations/${org}/changeRequests?${params.toString()}`, { signal }),
+      effectivePage === 1
+        ? request(
+            accessToken,
+            `/oapi/v1/codeup/organizations/${org}/repositories?page=1&perPage=100&orderBy=last_activity_at&sort=desc`,
+            { signal },
+          ).catch(() => null)
+        : Promise.resolve(null),
+    ])
+
+    const repositories = repoListResult
+      ? extractRecordArray(repoListResult.data)
+          .map(row => normalizeRepository(row, '', selectedOrganizationId))
+          .filter(Boolean)
+          .map(repo => ({ id: repo.id, name: repo.fullName || repo.name, fullName: repo.fullName || repo.name }))
+      : []
+    const repoMap = new Map(repositories.map(repo => [repo.id, repo]))
+
+    const rawRows = extractRecordArray(prResult.data)
+    const items = rawRows
+      .map(row => normalizeChangeRequest(row, selectedOrganizationId, repoMap))
+      .filter(Boolean)
+    const hasMore = hasNextPage(prResult.response, rawRows, effectivePage, effectivePageSize)
+    const headerTotal = positiveInteger(header(prResult.response, 'x-total'))
+    const totalCount = headerTotal !== null
+      ? headerTotal
+      : (!hasMore && effectivePage === 1 ? items.length : null)
+
+    return {
+      user,
+      organizations,
+      repositories,
+      selectedOrganizationId,
+      selectedRepositoryId: requestedRepo,
+      state: selectedState,
+      items,
+      totalCount,
+      page: effectivePage,
+      hasMore,
+      nextPage: hasMore ? effectivePage + 1 : null,
+      truncated: false,
+    }
+  }
+
+  async function pullRequestDetail({ token, organizationId, pullRequestId, signal } = {}) {
+    const accessToken = cleanToken(token)
+    const rawOrg = required(organizationId, 'organizationId')
+    const org = encodeURIComponent(rawOrg)
+    const { repositoryId, localId } = parseCodeupPrId(pullRequestId)
+    const result = await request(
+      accessToken,
+      `/oapi/v1/codeup/organizations/${org}/repositories/${encodeURIComponent(repositoryId)}/changeRequests/${encodeURIComponent(localId)}`,
+      { signal },
+    )
+    return normalizeChangeRequest(objectBody(result), rawOrg)
+  }
+
+  return { load, count, detail, repositories, listRepositories, repository, listPullRequests, pullRequestDetail }
 }
